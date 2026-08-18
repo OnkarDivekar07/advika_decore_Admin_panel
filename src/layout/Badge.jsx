@@ -11,15 +11,33 @@ const TONE_CLASSES = {
 // sent, only how an already-known status string is colored. Unrecognized
 // values (any status the backend adds later that we don't know about
 // yet) fall back to neutral gray rather than guessing.
+//
+// Also covers Shipment.status values (see prisma schema's ShipmentStatus
+// enum — CREATED/PICKED_UP/IN_TRANSIT/OUT_FOR_DELIVERY/DELIVERED/
+// DELIVERY_FAILED/RTO_INITIATED/RTO_DELIVERED/CANCELLED), which arrive
+// SCREAMING_SNAKE_CASE rather than lowercase — normalized below so both
+// shapes hit the same keyword lists.
 export function statusTone(status) {
-  const s = String(status || '').trim().toLowerCase();
-  if (['delivered', 'paid', 'completed', 'success', 'in stock', 'active'].includes(s)) {
+  const s = String(status || '').trim().toLowerCase().replace(/_/g, ' ');
+  if (
+    ['delivered', 'paid', 'completed', 'success', 'in stock', 'active', 'rto delivered'].includes(s)
+  ) {
     return 'green';
   }
-  if (['pending', 'processing', 'shipped', 'in transit', 'confirmed'].includes(s)) {
+  if (
+    [
+      'pending', 'processing', 'shipped', 'in transit', 'confirmed',
+      'created', 'picked up', 'out for delivery', 'attempted', 'cod pending',
+    ].includes(s)
+  ) {
     return 'yellow';
   }
-  if (['cancelled', 'canceled', 'failed', 'refunded', 'low stock', 'out of stock'].includes(s)) {
+  if (
+    [
+      'cancelled', 'canceled', 'failed', 'refunded', 'low stock', 'out of stock',
+      'delivery failed', 'rto initiated', 'timeout', 'unknown', 'returned',
+    ].includes(s)
+  ) {
     return 'red';
   }
   return 'gray';
