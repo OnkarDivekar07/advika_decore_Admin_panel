@@ -14,10 +14,11 @@
 //     overwriting their change. If that happens, this refreshes to the
 //     real current stock and lets the admin decide again — it never
 //     retries automatically.
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import apiClient from '../../api/apiClient';
 import Button from '../../layout/Button';
 import ConfirmDialog from '../../layout/ConfirmDialog';
+import useFocusTrap from '../../hooks/useFocusTrap';
 
 // A correction is treated as "large or destructive" — and gated behind an
 // explicit confirmation step — when it removes stock at all, or moves the
@@ -58,6 +59,39 @@ const StockAdjustModal = ({ product, onClose, onSuccess }) => {
   const [confirming, setConfirming] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+
+  const dialogRef = useRef(null);
+
+  // Traps Tab/Shift+Tab inside this dialog and restores focus to the
+  // "Adjust Stock" button that opened it once the component unmounts.
+  // `active: true` is safe here (rather than tied to some prop) because
+  // the parent only ever renders this component at all while a target
+  // product is set — see Inventory.jsx. Paused (not torn down) while the
+  // nested large/destructive-change ConfirmDialog is on top, so the two
+  // dialogs' Tab traps never fight over the same keydown event.
+  useFocusTrap(dialogRef, { active: true, paused: confirming });
+
+  // Send focus into the dialog as soon as it mounts, same as
+  // ConfirmDialog — otherwise a keyboard/screen-reader user stays
+  // positioned on the now-hidden "Adjust Stock" button behind it.
+  useEffect(() => {
+    dialogRef.current?.focus();
+  }, []);
+
+  // Escape closes this dialog — but only when the nested ConfirmDialog
+  // isn't the one on top; that dialog handles its own Escape and this
+  // listener staying live too would close both at once on a single
+  // keypress.
+  useEffect(() => {
+    if (confirming) return undefined;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && !submitting) {
+        onClose();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [confirming, submitting, onClose]);
 
   const loadCurrentStock = async () => {
     setLoading(true);
@@ -158,10 +192,12 @@ const StockAdjustModal = ({ product, onClose, onSuccess }) => {
       onClick={() => !submitting && onClose()}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="stock-adjust-title"
-        className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl"
+        tabIndex={-1}
+        className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl focus:outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 id="stock-adjust-title" className="text-lg font-semibold text-gray-900">

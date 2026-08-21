@@ -2,9 +2,10 @@
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { NAV_ITEMS } from './navConfig';
 
-// Only one nested/dynamic route exists today (/orders/:id), so this stays
-// a couple of explicit cases rather than a generic route-matching engine —
-// simplest thing that's actually correct for the routes App.js registers.
+// Two nested/dynamic routes exist today (/orders/:id, /users/:id), so this
+// stays a couple of explicit cases rather than a generic route-matching
+// engine — simplest thing that's actually correct for the routes App.js
+// registers.
 function crumbsFor(pathname, id) {
   if (pathname === '/dashboard') {
     return [{ label: 'Dashboard' }];
@@ -15,6 +16,14 @@ function crumbsFor(pathname, id) {
       { label: 'Dashboard', to: '/dashboard' },
       { label: 'Orders', to: '/orders' },
       { label: `Order #${id}` },
+    ];
+  }
+
+  if (pathname.startsWith('/users/') && id) {
+    return [
+      { label: 'Dashboard', to: '/dashboard' },
+      { label: 'Users', to: '/users' },
+      { label: 'Customer' },
     ];
   }
 

@@ -63,6 +63,16 @@ describe('ConfirmDialog', () => {
     expect(screen.getByRole('button', { name: /cancel/i })).toBeDisabled();
   });
 
+  it('renders optional children between the message and the error', () => {
+    render(
+      <ConfirmDialog open title="Cancel shipment?" message="This will notify the courier." onConfirm={jest.fn()} onCancel={jest.fn()}>
+        <label htmlFor="reason">Reason</label>
+      </ConfirmDialog>
+    );
+
+    expect(screen.getByText('Reason')).toBeInTheDocument();
+  });
+
   it('does not call onCancel from the backdrop while confirming', async () => {
     const onCancel = jest.fn();
     render(

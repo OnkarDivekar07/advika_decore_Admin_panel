@@ -43,7 +43,8 @@ admin_panel_fixed/
 │   │   ├── Products.jsx                   # Product listing & management
 │   │   ├── Orders.jsx                     # Orders listing
 │   │   ├── orderviewpage.jsx              # Single order detail view
-│   │   ├── Users.jsx                      # Registered users list
+│   │   ├── Users.jsx                      # Registered users list (search/role filter/sort, paginated)
+│   │   ├── userviewpage.jsx               # Single customer detail view
 │   │   ├── Inventory.jsx                  # Stock/inventory management
 │   │   └── Settings.jsx                   # Admin settings
 │   └── component/Adminlogin/
@@ -135,7 +136,8 @@ Log in at `/` using an admin account (email/password, authenticated against `POS
 | `/products`          | Product management      | Protected (admin)    |
 | `/orders`            | Order list              | Protected (admin)    |
 | `/orders/:id`        | Order detail view        | Protected (admin)    |
-| `/users`             | Registered users         | Protected (admin)    |
+| `/users`             | Registered users (search/filter/sort) | Protected (admin) |
+| `/users/:id`         | Customer detail view      | Protected (admin)    |
 | `/inventory`         | Inventory management      | Protected (admin)    |
 | `/settings`          | Admin settings             | Protected (admin)    |
 
@@ -145,9 +147,9 @@ Log in at `/` using an admin account (email/password, authenticated against `POS
 
 - **Dashboard** with business stats, user stats, and recent orders at a glance.
 - **Product management** — create/edit products with images, view as cards, manage details via `ProductForm`.
-- **Content management** — manage homepage banners and new-arrival products.
+- **Content management** — homepage banners (upload with link URL, preview, progress, client-side validation, broken-image recovery) and new-arrival products, both backed live by `GET/POST/DELETE /api/homepage/banners` and `GET/PATCH /api/homepage/new-arrivals`. Every destructive action (delete a banner, remove a new arrival) goes through `ConfirmDialog` — never a native `confirm()`.
 - **Order management** — view all orders and drill into individual order details.
-- **User management** — view registered users and their stats.
+- **Customer management** — paginated, backend-sorted/filtered user directory (search by name/email/phone, filter by role) with a per-customer detail view (profile, all addresses, recent orders, full-history order totals). No credentials, OTPs, tokens, or payment secrets are ever fetched or rendered, and role changes are intentionally not exposed — there is no protected backend operation for it yet.
 - **Inventory management** — track and update stock levels.
 - **Protected routing** via `ProtectedRoute.jsx`, gating all admin pages behind authentication.
 

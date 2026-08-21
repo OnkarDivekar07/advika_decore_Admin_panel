@@ -1,4 +1,5 @@
 import React from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Inventory from '../Inventory';
@@ -53,6 +54,8 @@ const mockGetByUrl = (handlers) => {
   });
 };
 
+const renderInventory = () => render(<Inventory />, { wrapper: MemoryRouter });
+
 describe('Inventory page', () => {
   beforeEach(() => {
     apiClient.get.mockReset();
@@ -65,7 +68,7 @@ describe('Inventory page', () => {
       products: productsResponse([buildProduct()]),
     });
 
-    render(<Inventory />);
+    renderInventory();
 
     expect(await screen.findByText('Brake Pad Set')).toBeInTheDocument();
     expect(screen.getByText('2 left')).toBeInTheDocument();
@@ -81,7 +84,7 @@ describe('Inventory page', () => {
       products: productsResponse([buildProduct()]),
     });
 
-    render(<Inventory />);
+    renderInventory();
 
     expect(await screen.findByText(/nothing is low on stock/i)).toBeInTheDocument();
   });
@@ -92,7 +95,7 @@ describe('Inventory page', () => {
       products: productsResponse([buildProduct()]),
     });
 
-    render(<Inventory />);
+    renderInventory();
     await screen.findByText(/nothing is low on stock/i);
     apiClient.get.mockClear();
     mockGetByUrl({
@@ -121,7 +124,7 @@ describe('Inventory page', () => {
       products: productsResponse([buildProduct({ stock: 42 })]),
     });
 
-    render(<Inventory />);
+    renderInventory();
 
     expect(await screen.findByText('Heavy Duty Mud Flap')).toBeInTheDocument();
     expect(screen.getByText('42')).toBeInTheDocument();
@@ -136,7 +139,7 @@ describe('Inventory page', () => {
       return Promise.reject(new Error('unexpected'));
     });
 
-    render(<Inventory />);
+    renderInventory();
 
     expect(await screen.findByText(/failed to load inventory/i)).toBeInTheDocument();
 
@@ -156,7 +159,7 @@ describe('Inventory page', () => {
       products: productsResponse([buildProduct({ stock: 15 })]),
     });
 
-    render(<Inventory />);
+    renderInventory();
     await screen.findByText('Heavy Duty Mud Flap');
 
     await userEvent.click(screen.getByRole('button', { name: /adjust stock/i }));
@@ -175,7 +178,7 @@ describe('Inventory page', () => {
       products: productsResponse([buildProduct()]),
     });
 
-    render(<Inventory />);
+    renderInventory();
     await screen.findByText('Brake Pad Set');
 
     await userEvent.click(screen.getByRole('button', { name: /restock/i }));
@@ -189,7 +192,7 @@ describe('Inventory page', () => {
       products: productsResponse([buildProduct()]),
     });
 
-    render(<Inventory />);
+    renderInventory();
     await screen.findByText('Heavy Duty Mud Flap');
 
     await userEvent.click(screen.getByRole('button', { name: /adjust stock/i }));

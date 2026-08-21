@@ -25,11 +25,11 @@ const validFields = {
 };
 
 const fillValidForm = async () => {
-  await userEvent.type(screen.getByPlaceholderText('Product Name'), validFields.name);
-  await userEvent.type(screen.getByPlaceholderText('Brand'), validFields.brand);
-  await userEvent.type(screen.getByPlaceholderText('Price'), validFields.price);
-  await userEvent.type(screen.getByPlaceholderText('Stock Quantity'), validFields.stock);
-  await userEvent.type(screen.getByPlaceholderText('Product Description'), validFields.description);
+  await userEvent.type(screen.getByLabelText('Product name'), validFields.name);
+  await userEvent.type(screen.getByLabelText('Brand'), validFields.brand);
+  await userEvent.type(screen.getByLabelText(/price/i), validFields.price);
+  await userEvent.type(screen.getByLabelText('Stock quantity'), validFields.stock);
+  await userEvent.type(screen.getByLabelText('Description'), validFields.description);
   await userEvent.click(screen.getByLabelText('Truck'));
 
   const file = new File(['fake-bytes'], 'shoe.jpg', { type: 'image/jpeg' });
@@ -57,11 +57,11 @@ describe('ProductForm', () => {
   it('requires at least one image on create even when every other field is valid', async () => {
     render(<ProductForm onClose={jest.fn()} onSuccess={jest.fn()} />);
 
-    await userEvent.type(screen.getByPlaceholderText('Product Name'), validFields.name);
-    await userEvent.type(screen.getByPlaceholderText('Brand'), validFields.brand);
-    await userEvent.type(screen.getByPlaceholderText('Price'), validFields.price);
-    await userEvent.type(screen.getByPlaceholderText('Stock Quantity'), validFields.stock);
-    await userEvent.type(screen.getByPlaceholderText('Product Description'), validFields.description);
+    await userEvent.type(screen.getByLabelText('Product name'), validFields.name);
+    await userEvent.type(screen.getByLabelText('Brand'), validFields.brand);
+    await userEvent.type(screen.getByLabelText(/price/i), validFields.price);
+    await userEvent.type(screen.getByLabelText('Stock quantity'), validFields.stock);
+    await userEvent.type(screen.getByLabelText('Description'), validFields.description);
     await userEvent.click(screen.getByLabelText('Truck'));
 
     await userEvent.click(screen.getByRole('button', { name: /add product/i }));
@@ -234,7 +234,7 @@ describe('ProductForm', () => {
     await userEvent.click(screen.getByRole('button', { name: /add product/i }));
     expect(await screen.findByText('Product name is required')).toBeInTheDocument();
 
-    await userEvent.type(screen.getByPlaceholderText('Product Name'), 'A');
+    await userEvent.type(screen.getByLabelText('Product name'), 'A');
     expect(screen.queryByText('Product name is required')).not.toBeInTheDocument();
   });
 });

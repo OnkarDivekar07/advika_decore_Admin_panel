@@ -1,11 +1,55 @@
 // src/components/Header.jsx
+//
+// PHASE 14 — the notification bell used to show a hardcoded "5 unread"
+// badge with no backend behind it. It now reflects the real total across
+// every operational-alerts section (GET /api/admin/alerts — see
+// admin.service.js's getOperationalAlerts): low-stock products, orders
+// still awaiting confirmation, payment exceptions, and shipment
+// exceptions. Clicking it goes straight to the Alerts page, which is the
+// only place any of this is broken down. No badge at all when the count
+// is 0 — an empty badge reading "0" would just be visual noise mimicking
+// an alert that isn't there.
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import apiClient from '../../api/apiClient';
 
 function Header({ onMenuClick = () => {}, sidebarOpen = false }) {
   // logout() is the single implementation of "clear admin session state"
   // (see AuthContext) — every page that renders this Header gets a
   // working logout for free instead of re-deriving it.
   const { logout } = useAuth();
+
+  const [alertsCount, setAlertsCount] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    apiClient
+      .get('/api/admin/alerts')
+      .then((res) => {
+        if (cancelled) return;
+        const data = res.data.data || {};
+        const total =
+          (data.lowStock?.count || 0) +
+          (data.pendingOrders?.count || 0) +
+          (data.paymentExceptions?.count || 0) +
+          (data.shipmentExceptions?.count || 0);
+        setAlertsCount(total);
+      })
+      .catch(() => {
+        // Silent — the bell simply shows no badge rather than a broken
+        // header if this call fails; Alerts.jsx itself shows the real
+        // error state if the admin navigates there.
+        if (!cancelled) setAlertsCount(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const hasAlerts = typeof alertsCount === 'number' && alertsCount > 0;
 
   return (
     <header className="sticky top-0 z-30 bg-white shadow-md">
@@ -33,16 +77,22 @@ function Header({ onMenuClick = () => {}, sidebarOpen = false }) {
         </div>
 
         <div className="flex shrink-0 items-center gap-1 sm:gap-4">
-          <button
-            type="button"
-            aria-label="Notifications, 5 unread"
+          <Link
+            to="/alerts"
+            aria-label={
+              hasAlerts
+                ? `Operational alerts, ${alertsCount} needing attention`
+                : 'Operational alerts'
+            }
             className="relative rounded-md p-2 text-gray-600 hover:text-blue-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             <i className="fas fa-bell fa-lg" aria-hidden="true"></i>
-            <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-xs font-semibold text-white">
-              5
-            </span>
-          </button>
+            {hasAlerts && (
+              <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-xs font-semibold text-white">
+                {alertsCount > 99 ? '99+' : alertsCount}
+              </span>
+            )}
+          </Link>
 
           <button
             type="button"

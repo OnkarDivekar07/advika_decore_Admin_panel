@@ -1,4 +1,5 @@
 import React from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Products from '../Products';
@@ -47,6 +48,8 @@ const mockListResponse = (data, meta = {}) => ({
   },
 });
 
+const renderProducts = () => render(<Products />, { wrapper: MemoryRouter });
+
 describe('Products page', () => {
   beforeEach(() => {
     apiClient.get.mockReset();
@@ -56,7 +59,7 @@ describe('Products page', () => {
   it('shows a loading state, then the product list', async () => {
     apiClient.get.mockResolvedValue(mockListResponse([buildProduct()]));
 
-    render(<Products />);
+    renderProducts();
 
     expect(screen.getByText(/loading products/i)).toBeInTheDocument();
     expect(await screen.findByText('Heavy Duty Mud Flap')).toBeInTheDocument();
@@ -69,7 +72,7 @@ describe('Products page', () => {
       ])
     );
 
-    render(<Products />);
+    renderProducts();
 
     await screen.findByText('Heavy Duty Mud Flap');
     expect(screen.getByText('Advika')).toBeInTheDocument();
@@ -82,14 +85,14 @@ describe('Products page', () => {
   it('shows an empty state when there are no products', async () => {
     apiClient.get.mockResolvedValue(mockListResponse([]));
 
-    render(<Products />);
+    renderProducts();
 
     expect(await screen.findByText(/no products found/i)).toBeInTheDocument();
   });
 
   it('shows an error state with a working retry', async () => {
     apiClient.get.mockRejectedValueOnce(new Error('network down'));
-    render(<Products />);
+    renderProducts();
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/failed to load products/i);
 
@@ -101,7 +104,7 @@ describe('Products page', () => {
 
   it('sends the debounced search term to the backend', async () => {
     apiClient.get.mockResolvedValue(mockListResponse([buildProduct()]));
-    render(<Products />);
+    renderProducts();
     await screen.findByText('Heavy Duty Mud Flap');
     apiClient.get.mockClear();
 
@@ -119,7 +122,7 @@ describe('Products page', () => {
 
   it('sends the selected category/stock/new-arrival filters to the backend', async () => {
     apiClient.get.mockResolvedValue(mockListResponse([buildProduct()]));
-    render(<Products />);
+    renderProducts();
     await screen.findByText('Heavy Duty Mud Flap');
     apiClient.get.mockClear();
     apiClient.get.mockResolvedValue(mockListResponse([]));
@@ -146,7 +149,7 @@ describe('Products page', () => {
     apiClient.get.mockResolvedValue(
       mockListResponse([buildProduct()], { page: 1, totalPages: 3, total: 25 })
     );
-    render(<Products />);
+    renderProducts();
     await screen.findByText('Heavy Duty Mud Flap');
 
     expect(screen.getByText(/page 1 of 3/i)).toBeInTheDocument();
@@ -172,10 +175,10 @@ describe('Products page', () => {
   it('requires confirmation before deleting, and removes the row after a successful delete', async () => {
     apiClient.get.mockResolvedValue(mockListResponse([buildProduct()]));
     apiClient.delete.mockResolvedValue({});
-    render(<Products />);
+    renderProducts();
     await screen.findByText('Heavy Duty Mud Flap');
 
-    await userEvent.click(screen.getByRole('button', { name: /^delete$/i }));
+    await userEvent.click(screen.getByRole('button', { name: /^delete heavy duty mud flap$/i }));
 
     const dialog = await screen.findByRole('alertdialog');
     expect(within(dialog).getByText(/delete this product/i)).toBeInTheDocument();
@@ -191,10 +194,10 @@ describe('Products page', () => {
   it('keeps the confirmation dialog open and shows the error when delete fails', async () => {
     apiClient.get.mockResolvedValue(mockListResponse([buildProduct()]));
     apiClient.delete.mockRejectedValue({ response: { data: { message: 'Cannot delete: referenced by an order' } } });
-    render(<Products />);
+    renderProducts();
     await screen.findByText('Heavy Duty Mud Flap');
 
-    await userEvent.click(screen.getByRole('button', { name: /^delete$/i }));
+    await userEvent.click(screen.getByRole('button', { name: /^delete heavy duty mud flap$/i }));
     const dialog = await screen.findByRole('alertdialog');
     await userEvent.click(within(dialog).getByRole('button', { name: /^delete$/i }));
 
@@ -204,10 +207,10 @@ describe('Products page', () => {
 
   it('cancelling the confirmation dialog does not call delete', async () => {
     apiClient.get.mockResolvedValue(mockListResponse([buildProduct()]));
-    render(<Products />);
+    renderProducts();
     await screen.findByText('Heavy Duty Mud Flap');
 
-    await userEvent.click(screen.getByRole('button', { name: /^delete$/i }));
+    await userEvent.click(screen.getByRole('button', { name: /^delete heavy duty mud flap$/i }));
     const dialog = await screen.findByRole('alertdialog');
     await userEvent.click(within(dialog).getByRole('button', { name: /cancel/i }));
 
@@ -217,7 +220,7 @@ describe('Products page', () => {
 
   it('opens the form for adding a new product and refetches after a successful save', async () => {
     apiClient.get.mockResolvedValue(mockListResponse([buildProduct()]));
-    render(<Products />);
+    renderProducts();
     await screen.findByText('Heavy Duty Mud Flap');
 
     await userEvent.click(screen.getByRole('button', { name: /add new product/i }));
@@ -236,10 +239,10 @@ describe('Products page', () => {
 
   it('opens the form pre-filled for editing an existing product', async () => {
     apiClient.get.mockResolvedValue(mockListResponse([buildProduct()]));
-    render(<Products />);
+    renderProducts();
     await screen.findByText('Heavy Duty Mud Flap');
 
-    await userEvent.click(screen.getByRole('button', { name: /^edit$/i }));
+    await userEvent.click(screen.getByRole('button', { name: /^edit heavy duty mud flap$/i }));
 
     expect(screen.getByText('Editing Heavy Duty Mud Flap')).toBeInTheDocument();
   });

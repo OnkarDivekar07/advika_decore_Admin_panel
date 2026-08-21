@@ -13,3 +13,15 @@ if (typeof global.TextEncoder === 'undefined') {
 if (typeof global.TextDecoder === 'undefined') {
   global.TextDecoder = TextDecoder;
 }
+
+// jsdom doesn't implement createObjectURL/revokeObjectURL for File/Blob —
+// components that show an image preview before upload (e.g.
+// BannerManagement) call these directly. Stubbed here (once, for tests
+// only) rather than in app code; the fake URL value is never asserted on,
+// only that the preview <img> itself renders.
+if (typeof global.URL.createObjectURL === 'undefined') {
+  global.URL.createObjectURL = () => 'blob:mock-preview-url';
+}
+if (typeof global.URL.revokeObjectURL === 'undefined') {
+  global.URL.revokeObjectURL = () => {};
+}

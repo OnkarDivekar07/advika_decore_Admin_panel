@@ -43,6 +43,35 @@ export function setSessionInvalidatedHandler(handler) {
   onSessionInvalidated = handler;
 }
 
+// PHASE 13 — "handle session expiration gracefully". The backend's own
+// authenticate.js isn't fully consistent: it returns 401 when no token is
+// sent, but 400 ("Invalid token.") for both a malformed AND an expired
+// token (jwt.verify's TokenExpiredError falls into the same catch as
+// everything else there) — see
+// backend/src/middlewares/authenticate.js. Admin sessions are 1-hour JWTs
+// (backend/src/utils/generateToken.js), so this isn't a hypothetical edge
+// case: any admin who leaves a tab open past that just hit a 400 that
+// this interceptor used to silently ignore, leaving them looking at
+// broken screens with no explanation instead of being redirected to
+// /login. The customer frontend already solved this the same way (see
+// frontend/src/utils/apiClient.js) without needing a backend contract
+// change, since re-shaping authenticate.js's response would touch every
+// authenticated route in the app, admin and customer-facing alike — this
+// mirrors that exact approach for consistency between the two clients.
+const AUTH_FAILURE_MESSAGES = [
+  'invalid token',
+  'access denied',
+  'no token provided',
+  'jwt expired',
+  'jwt malformed',
+];
+
+function isTokenFailure(status, data) {
+  if (status !== 400) return false;
+  const message = String(data?.error || data?.message || '').toLowerCase();
+  return AUTH_FAILURE_MESSAGES.some((needle) => message.includes(needle));
+}
+
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -54,12 +83,16 @@ apiClient.interceptors.response.use(
     // relying on an existing session.
     const isLoginRequest = error.config?.url?.includes('/api/admin/login');
 
-    if (!isLoginRequest && (status === 401 || status === 403)) {
+    const isAuthFailure =
+      !isLoginRequest &&
+      (status === 401 || status === 403 || isTokenFailure(status, error.response?.data));
+
+    if (isAuthFailure) {
       clearStoredSession();
       if (onSessionInvalidated) {
-        // 401 = missing/invalid/expired token ("please log in again").
-        // 403 = a syntactically valid token that just isn't an admin's
-        // ("this account doesn't have admin access") — see
+        // 401/expired-or-malformed-400 = no valid token ("please log in
+        // again"). 403 = a syntactically valid token that just isn't an
+        // admin's ("this account doesn't have admin access") — see
         // authorizeAdminOnly.js. Kept distinguishable so the UI can say
         // the right thing instead of a generic "logged out".
         onSessionInvalidated(status === 403 ? 'forbidden' : 'expired');

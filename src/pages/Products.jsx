@@ -1,17 +1,33 @@
 // src/pages/Products.jsx
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+//
+// PHASE 12 — rebuilt on the shared admin data-interaction layer
+// (useAdminListQuery + DataTable, see src/hooks/useAdminListQuery.js and
+// src/layout/DataTable.jsx). Same backend contract as before
+// (GET /api/products, backend-paginated/filtered/sorted/searched via
+// utils/paginateWithCache.js) — only how this screen manages and renders
+// that query changed:
+//   - search now correctly resets to page 1 once it settles (previously
+//     it didn't, a real bug: searching while on page 3 could appear to
+//     "find nothing" purely because page 3 no longer existed for the new
+//     query)
+//   - filters/sort/page are persisted in the URL, so reloading or sharing
+//     a link reproduces the exact same view
+//   - an in-flight request is aborted the moment a newer one starts, and
+//     any response that still resolves out of order is ignored — an
+//     older, slower response can never overwrite newer results
+//   - Name/Price/Stock column headers are directly clickable to sort
+//     (deterministic — same sort/order state that drives the request,
+//     never a client-side re-ordering of already-fetched rows)
+import React, { useCallback, useState } from "react";
 import apiClient from "../api/apiClient";
 import ProductForm from "../component/Adminlogin/ProductForm";
 import PageHeader from "../layout/PageHeader";
 import Panel from "../layout/Panel";
 import Button from "../layout/Button";
-import LoadingState from "../layout/LoadingState";
-import ErrorState from "../layout/ErrorState";
-import EmptyState from "../layout/EmptyState";
 import ConfirmDialog from "../layout/ConfirmDialog";
-import Pagination from "../layout/Pagination";
+import DataTable from "../layout/DataTable";
 import Badge, { statusTone } from "../layout/Badge";
-import useDebouncedValue from "../hooks/useDebouncedValue";
+import useAdminListQuery from "../hooks/useAdminListQuery";
 
 const categoryOptions = ["Truck", "Tempo", "Pickup", "Car", "Two Wheeler", "Tractor"];
 
@@ -34,23 +50,46 @@ const DEFAULT_FILTERS = {
   brand: "",
   inStock: "",
   isNewArrival: "",
-  sort: "createdAt",
-  order: "desc",
 };
 
 const PAGE_SIZE = 10;
 
 const Products = () => {
-  const [products, setProducts] = useState([]);
-  const [meta, setMeta] = useState({ page: 1, totalPages: 1, total: 0 });
-  const [loading, setLoading] = useState(true);
+  const fetchProducts = useCallback(
+    (params, signal) =>
+      apiClient
+        .get("/api/products", { params, signal })
+        .then((response) => ({ data: response.data.data, meta: response.data.meta })),
+    []
+  );
+
+  const {
+    data: products,
+    meta,
+    loading,
+    refreshing,
+    error,
+    isStale,
+    filters,
+    setFilter,
+    clearFilters,
+    page,
+    setPage,
+    sort,
+    order,
+    setSort,
+    hasActiveFilters,
+    refetch,
+  } = useAdminListQuery({
+    fetcher: fetchProducts,
+    defaultFilters: DEFAULT_FILTERS,
+    defaultSort: { sort: "createdAt", order: "desc" },
+    pageSize: PAGE_SIZE,
+    errorMessage: "Failed to load products.",
+  });
+
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
-  const [error, setError] = useState("");
-
-  const [filters, setFilters] = useState(DEFAULT_FILTERS);
-  const [page, setPage] = useState(1);
-  const debouncedSearch = useDebouncedValue(filters.search, 400);
 
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
@@ -58,48 +97,7 @@ const Products = () => {
 
   const [banner, setBanner] = useState(null); // { tone: 'success' | 'error', message }
 
-  // Whenever a filter (other than the raw search text, which is
-  // debounced separately) changes, jump back to page 1 — otherwise the
-  // admin can land on a now out-of-range page for the new filter set.
-  const resetToFirstPage = (updater) => {
-    setPage(1);
-    setFilters(updater);
-  };
-
-  const fetchProducts = useCallback(async () => {
-    try {
-      setError("");
-      setLoading(true);
-
-      const params = { page, limit: PAGE_SIZE, sort: filters.sort, order: filters.order };
-      if (debouncedSearch) params.search = debouncedSearch;
-      if (filters.category) params.category = filters.category;
-      if (filters.brand) params.brand = filters.brand;
-      if (filters.inStock) params.inStock = filters.inStock;
-      if (filters.isNewArrival) params.isNewArrival = filters.isNewArrival;
-
-      const response = await apiClient.get(`/api/products`, { params });
-      setProducts(response.data.data || []);
-      setMeta({
-        page: response.data.meta?.page ?? 1,
-        totalPages: response.data.meta?.totalPages ?? 1,
-        total: response.data.meta?.total ?? 0,
-      });
-    } catch (err) {
-      console.error("Error fetching products:", err);
-      setError("Failed to load products.");
-    } finally {
-      setLoading(false);
-    }
-  }, [page, filters.sort, filters.order, filters.category, filters.brand, filters.inStock, filters.isNewArrival, debouncedSearch]);
-
-  useEffect(() => {
-    fetchProducts();
-  }, [fetchProducts]);
-
-  // Auto-dismiss the success/error banner after mutations so it doesn't
-  // linger indefinitely.
-  useEffect(() => {
+  React.useEffect(() => {
     if (!banner) return undefined;
     const timer = setTimeout(() => setBanner(null), 6000);
     return () => clearTimeout(timer);
@@ -118,9 +116,9 @@ const Products = () => {
       // row (or, on the last page, empty entirely), and only the backend
       // knows the correct replacement/next page of data.
       if (products.length === 1 && page > 1) {
-        setPage((p) => p - 1);
+        setPage(page - 1);
       } else {
-        fetchProducts();
+        refetch();
       }
     } catch (err) {
       console.error("Error deleting product:", err);
@@ -138,13 +136,80 @@ const Products = () => {
       tone: "success",
       message: wasEditing ? "Product updated." : "Product created.",
     });
-    fetchProducts();
+    refetch();
   };
 
-  const activeFilterCount = useMemo(
-    () => [filters.category, filters.brand, filters.inStock, filters.isNewArrival].filter(Boolean).length,
-    [filters.category, filters.brand, filters.inStock, filters.isNewArrival]
-  );
+  const activeFilterCount = [filters.category, filters.brand, filters.inStock, filters.isNewArrival].filter(
+    Boolean
+  ).length;
+
+  const columns = [
+    {
+      key: "image",
+      header: "Image",
+      mobileHidden: true,
+      accessor: (product) => (
+        <img
+          src={product.images?.[0] || "/placeholder.png"}
+          alt={product.name}
+          className="h-12 w-12 rounded object-cover"
+        />
+      ),
+    },
+    {
+      key: "id",
+      header: "ID",
+      hideBelow: "lg",
+      mobileHidden: true,
+      accessor: (product) => (
+        <span className="font-mono text-xs text-gray-400" title={product.id}>
+          {String(product.id).slice(-8)}
+        </span>
+      ),
+    },
+    {
+      key: "name",
+      header: "Name",
+      sortKey: "name",
+      mobileHidden: true, // already the mobile card title
+      cellClassName: "font-medium text-gray-900",
+      accessor: (product) => product.name,
+    },
+    {
+      key: "brand",
+      header: "Brand",
+      accessor: (product) => product.brand,
+    },
+    {
+      key: "category",
+      header: "Category",
+      hideBelow: "lg",
+      accessor: (product) => (Array.isArray(product.category) ? product.category.join(", ") : product.category),
+    },
+    {
+      key: "price",
+      header: "Price",
+      sortKey: "price",
+      accessor: (product) => `₹${Number(product.price).toFixed(2)}`,
+    },
+    {
+      key: "stock",
+      header: "Stock",
+      sortKey: "stock",
+      accessor: (product) => (
+        <Badge tone={statusTone(stockLabel(product.stock))}>
+          {product.stock} · {stockLabel(product.stock)}
+        </Badge>
+      ),
+    },
+    {
+      key: "isNewArrival",
+      header: "New Arrival",
+      hideBelow: "lg",
+      accessor: (product) =>
+        product.isNewArrival ? <Badge tone="blue">New Arrival</Badge> : <span className="text-gray-400">—</span>,
+    },
+  ];
 
   return (
     <>
@@ -202,7 +267,7 @@ const Products = () => {
               type="search"
               placeholder="Search by name or brand…"
               value={filters.search}
-              onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
+              onChange={(e) => setFilter("search", e.target.value)}
               className="w-full rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             />
           </div>
@@ -210,7 +275,7 @@ const Products = () => {
           <select
             aria-label="Filter by category"
             value={filters.category}
-            onChange={(e) => resetToFirstPage((prev) => ({ ...prev, category: e.target.value }))}
+            onChange={(e) => setFilter("category", e.target.value)}
             className="rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             <option value="">All categories</option>
@@ -226,14 +291,14 @@ const Products = () => {
             type="text"
             placeholder="Brand"
             value={filters.brand}
-            onChange={(e) => resetToFirstPage((prev) => ({ ...prev, brand: e.target.value }))}
+            onChange={(e) => setFilter("brand", e.target.value)}
             className="rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           />
 
           <select
             aria-label="Filter by stock status"
             value={filters.inStock}
-            onChange={(e) => resetToFirstPage((prev) => ({ ...prev, inStock: e.target.value }))}
+            onChange={(e) => setFilter("inStock", e.target.value)}
             className="rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             <option value="">Any stock level</option>
@@ -244,7 +309,7 @@ const Products = () => {
           <select
             aria-label="Filter by new arrival"
             value={filters.isNewArrival}
-            onChange={(e) => resetToFirstPage((prev) => ({ ...prev, isNewArrival: e.target.value }))}
+            onChange={(e) => setFilter("isNewArrival", e.target.value)}
             className="rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             <option value="">New arrival: any</option>
@@ -253,58 +318,38 @@ const Products = () => {
           </select>
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <label className="text-sm text-gray-600" htmlFor="product-sort">
-            Sort by
-          </label>
-          <select
-            id="product-sort"
-            value={filters.sort}
-            onChange={(e) => resetToFirstPage((prev) => ({ ...prev, sort: e.target.value }))}
-            className="rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-          >
-            <option value="createdAt">Date added</option>
-            <option value="name">Name</option>
-            <option value="price">Price</option>
-            <option value="stock">Stock</option>
-          </select>
-          <select
-            aria-label="Sort order"
-            value={filters.order}
-            onChange={(e) => resetToFirstPage((prev) => ({ ...prev, order: e.target.value }))}
-            className="rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-          >
-            <option value="desc">Descending</option>
-            <option value="asc">Ascending</option>
-          </select>
-
-          {(activeFilterCount > 0 || filters.search) && (
+        {(activeFilterCount > 0 || filters.search) && (
+          <div className="mt-3">
             <button
               type="button"
-              onClick={() => resetToFirstPage(() => DEFAULT_FILTERS)}
+              onClick={clearFilters}
               className="rounded text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             >
               Clear filters
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </Panel>
 
       <Panel>
-        {error && <ErrorState message={error} onRetry={fetchProducts} className="mb-4" />}
-
-        {loading ? (
-          <LoadingState label="Loading products…" />
-        ) : products.length === 0 ? (
-          <EmptyState
-            icon="box-open"
-            title="No products found"
-            description={
-              filters.search || activeFilterCount > 0
-                ? "No products match the current search/filters."
-                : "Add your first product to get started."
-            }
-            action={
+        <DataTable
+          columns={columns}
+          rows={products}
+          getRowKey={(product) => product.id}
+          caption="Products"
+          loading={loading}
+          loadingLabel="Loading products…"
+          error={error}
+          onRetry={refetch}
+          refreshing={refreshing}
+          isStale={isStale}
+          empty={{
+            icon: "box-open",
+            title: "No products found",
+            description: hasActiveFilters
+              ? "No products match the current search/filters."
+              : "Add your first product to get started.",
+            action: (
               <Button
                 variant="primary"
                 onClick={() => {
@@ -315,87 +360,40 @@ const Products = () => {
                 <i className="fas fa-plus" aria-hidden="true"></i>
                 Add New Product
               </Button>
-            }
-          />
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Image</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                    <th className="hidden px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase sm:table-cell">Brand</th>
-                    <th className="hidden px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase md:table-cell">Category</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Price</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock</th>
-                    <th className="hidden px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase lg:table-cell">New Arrival</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {products.map((product) => (
-                    <tr key={product.id}>
-                      <td className="px-6 py-4">
-                        <img
-                          src={product.images?.[0] || "/placeholder.png"}
-                          alt={product.name}
-                          className="w-16 h-16 object-cover rounded"
-                        />
-                      </td>
-                      <td className="px-6 py-4 text-xs font-mono text-gray-400" title={product.id}>
-                        {String(product.id).slice(-8)}
-                      </td>
-                      <td className="px-6 py-4 text-sm font-medium">{product.name}</td>
-                      <td className="hidden px-6 py-4 text-sm text-gray-500 sm:table-cell">{product.brand}</td>
-                      <td className="hidden px-6 py-4 text-sm text-gray-500 md:table-cell">
-                        {Array.isArray(product.category) ? product.category.join(", ") : product.category}
-                      </td>
-                      <td className="px-6 py-4 text-sm">₹{Number(product.price).toFixed(2)}</td>
-                      <td className="px-6 py-4 text-sm">
-                        <Badge tone={statusTone(stockLabel(product.stock))}>
-                          {product.stock} · {stockLabel(product.stock)}
-                        </Badge>
-                      </td>
-                      <td className="hidden px-6 py-4 text-sm lg:table-cell">
-                        {product.isNewArrival ? (
-                          <Badge tone="blue">New Arrival</Badge>
-                        ) : (
-                          <span className="text-gray-400">—</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-right text-sm">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="secondary"
-                            onClick={() => {
-                              setEditingProduct(product);
-                              setShowForm(true);
-                            }}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            variant="dangerOutline"
-                            onClick={() => {
-                              setDeleteError("");
-                              setDeleteTarget(product);
-                            }}
-                          >
-                            Delete
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={setPage} />
-          </>
-        )}
+            ),
+          }}
+          sort={sort}
+          order={order}
+          onSortChange={setSort}
+          meta={meta}
+          onPageChange={setPage}
+          mobileCardTitle={(product) => product.name}
+          mobileCardSubtitle={(product) => product.brand}
+          renderRowActions={(product) => (
+            <>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setEditingProduct(product);
+                  setShowForm(true);
+                }}
+                aria-label={`Edit ${product.name}`}
+              >
+                Edit
+              </Button>
+              <Button
+                variant="dangerOutline"
+                onClick={() => {
+                  setDeleteError("");
+                  setDeleteTarget(product);
+                }}
+                aria-label={`Delete ${product.name}`}
+              >
+                Delete
+              </Button>
+            </>
+          )}
+        />
       </Panel>
 
       <ConfirmDialog

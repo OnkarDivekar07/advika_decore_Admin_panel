@@ -9,6 +9,7 @@
 // request is in flight.
 import { useEffect, useRef } from 'react';
 import Button from './Button';
+import useFocusTrap from '../hooks/useFocusTrap';
 
 const ConfirmDialog = ({
   open,
@@ -21,8 +22,20 @@ const ConfirmDialog = ({
   isConfirming = false,
   onConfirm,
   onCancel,
+  // Optional extra content (e.g. a reason input) rendered between the
+  // message and any error text. Omitted by every existing caller, so this
+  // is purely additive — it doesn't change how Products.jsx's delete
+  // confirmation (or any other existing usage) renders.
+  children,
 }) => {
   const confirmButtonRef = useRef(null);
+  const dialogRef = useRef(null);
+
+  // Traps Tab/Shift+Tab inside the dialog while open, and returns focus to
+  // whatever triggered it (the "Delete"/"Remove"/etc. button) once it
+  // closes — see useFocusTrap for why this is a separate hook shared with
+  // StockAdjustModal rather than duplicated logic.
+  useFocusTrap(dialogRef, { active: open });
 
   // Focus the confirm button as soon as the dialog opens, and let Escape
   // cancel — matches native dialog keyboard behavior so keyboard-only
@@ -51,6 +64,7 @@ const ConfirmDialog = ({
       onClick={() => !isConfirming && onCancel?.()}
     >
       <div
+        ref={dialogRef}
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
@@ -66,6 +80,7 @@ const ConfirmDialog = ({
             {message}
           </p>
         )}
+        {children && <div className="mt-3">{children}</div>}
         {error && (
           <p role="alert" className="mt-2 text-sm text-red-600">
             {error}

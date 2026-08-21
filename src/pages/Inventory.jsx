@@ -5,10 +5,19 @@
 // page:
 //   - GET /api/inventory/low-stock drives the actionable "needs
 //     attention" list (admin-adjustable threshold, sent straight to the
-//     backend rather than filtered client-side).
+//     backend rather than filtered client-side). This list is
+//     deliberately NOT run through the shared DataTable/useAdminListQuery
+//     machinery below — it isn't paginated or user-sortable, it's a
+//     small "needs attention right now" panel, and the backend already
+//     caps how many rows it can return (see inventory.service.js's
+//     listLowStockProducts, PHASE 12).
 //   - GET /api/products (same endpoint the Products screen already uses —
 //     there's no separate "inventory item" entity, stock lives directly
-//     on Product) drives the full, searchable, paginated stock browser.
+//     on Product) drives the full, searchable, paginated stock browser,
+//     and — PHASE 12 — now runs on the same shared data-interaction layer
+//     as Products/Orders/Users: debounced search that correctly resets to
+//     page 1, filters/page persisted in the URL, and race-safe requests
+//     (an older, slower response can never overwrite a newer one).
 //   - Every stock change goes through StockAdjustModal, which reads
 //     GET /api/inventory/:productId for the authoritative current value
 //     and PATCHes /api/inventory/:productId for the mutation — this page
@@ -22,9 +31,10 @@ import Button from '../layout/Button';
 import LoadingState from '../layout/LoadingState';
 import ErrorState from '../layout/ErrorState';
 import EmptyState from '../layout/EmptyState';
-import Pagination from '../layout/Pagination';
 import Badge, { statusTone } from '../layout/Badge';
+import DataTable from '../layout/DataTable';
 import useDebouncedValue from '../hooks/useDebouncedValue';
+import useAdminListQuery from '../hooks/useAdminListQuery';
 import StockAdjustModal from '../component/Adminlogin/StockAdjustModal';
 
 const DEFAULT_THRESHOLD = 10;
@@ -35,6 +45,8 @@ const stockLabel = (stock, threshold) => {
   if (stock <= threshold) return 'Low Stock';
   return 'In Stock';
 };
+
+const DEFAULT_FILTERS = { search: '' };
 
 const Inventory = () => {
   // --- Low-stock monitoring (GET /api/inventory/low-stock) ---------------
@@ -70,45 +82,37 @@ const Inventory = () => {
   }, [fetchLowStock]);
 
   // --- Full catalog stock browser (GET /api/products) ---------------------
-  const [search, setSearch] = useState('');
-  const debouncedSearch = useDebouncedValue(search, 400);
-  const [page, setPage] = useState(1);
-  const [products, setProducts] = useState([]);
-  const [meta, setMeta] = useState({ page: 1, totalPages: 1, total: 0 });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  // Sort is deliberately fixed (stock ascending — lowest stock first,
+  // the most operationally relevant order for this screen) rather than
+  // user-controllable, so there's no separate sort UI here.
+  const fetchInventoryProducts = useCallback(
+    (params, signal) =>
+      apiClient
+        .get('/api/products', { params, signal })
+        .then((response) => ({ data: response.data.data, meta: response.data.meta })),
+    []
+  );
 
-  const fetchProducts = useCallback(async () => {
-    try {
-      setError('');
-      setLoading(true);
-      const params = { page, limit: PAGE_SIZE, sort: 'stock', order: 'asc' };
-      if (debouncedSearch) params.search = debouncedSearch;
-
-      const response = await apiClient.get('/api/products', { params });
-      setProducts(response.data.data || []);
-      setMeta({
-        page: response.data.meta?.page ?? 1,
-        totalPages: response.data.meta?.totalPages ?? 1,
-        total: response.data.meta?.total ?? 0,
-      });
-    } catch (err) {
-      console.error('Error fetching inventory:', err);
-      setError('Failed to load inventory.');
-    } finally {
-      setLoading(false);
-    }
-  }, [page, debouncedSearch]);
-
-  useEffect(() => {
-    fetchProducts();
-  }, [fetchProducts]);
-
-  // Jump back to page 1 whenever the search term actually changes (after
-  // debounce settles), so a new search never lands on a now out-of-range page.
-  useEffect(() => {
-    setPage(1);
-  }, [debouncedSearch]);
+  const {
+    data: products,
+    meta,
+    loading,
+    refreshing,
+    error,
+    isStale,
+    filters,
+    setFilter,
+    setPage,
+    hasActiveFilters,
+    refetch: refetchProducts,
+    mutateData: setProducts,
+  } = useAdminListQuery({
+    fetcher: fetchInventoryProducts,
+    defaultFilters: DEFAULT_FILTERS,
+    defaultSort: { sort: 'stock', order: 'asc' },
+    pageSize: PAGE_SIZE,
+    errorMessage: 'Failed to load inventory.',
+  });
 
   // --- Stock adjustment modal + result banner -----------------------------
   const [adjustTarget, setAdjustTarget] = useState(null);
@@ -121,21 +125,51 @@ const Inventory = () => {
   }, [banner]);
 
   // `updated` is the backend's authoritative response from the PATCH —
-  // every list on this page is reconciled against it, never against a
-  // locally-guessed value.
+  // both lists on this page are reconciled against it, never against a
+  // locally-guessed value. The catalog browser's row is patched in place
+  // via mutateData (its position on the current page doesn't change, and
+  // the value being written in is exactly what the backend just
+  // returned); the low-stock panel is re-fetched outright since whether
+  // this product still belongs on it depends on the threshold, which
+  // only the backend can evaluate correctly.
   const handleAdjustSuccess = (updated) => {
     setProducts((prev) => prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p)));
     setLowStock((prev) => prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p)));
     setBanner({
-      tone: 'success',
+      tone: "success",
       message: `Stock for "${adjustTarget?.name}" is now ${updated.stock}.`,
     });
     setAdjustTarget(null);
-    // The low-stock list's membership depends on where the new stock
-    // level falls relative to the threshold — only the backend knows
-    // whether this product should still be on it.
     fetchLowStock();
   };
+
+  const inventoryColumns = [
+    {
+      key: 'name',
+      header: 'Product Name',
+      mobileHidden: true, // already the mobile card title
+      cellClassName: 'font-medium text-gray-900',
+      accessor: (product) => product.name,
+    },
+    {
+      key: 'brand',
+      header: 'Brand',
+      accessor: (product) => product.brand,
+    },
+    {
+      key: 'stock',
+      header: 'Stock',
+      accessor: (product) => product.stock,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      accessor: (product) => {
+        const label = stockLabel(product.stock ?? 0, threshold);
+        return <Badge tone={statusTone(label)}>{label}</Badge>;
+      },
+    },
+  ];
 
   return (
     <>
@@ -201,16 +235,16 @@ const Inventory = () => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                       Product
                     </th>
-                    <th className="hidden px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase sm:table-cell">
+                    <th scope="col" className="hidden px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase sm:table-cell">
                       Brand
                     </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                       Stock
                     </th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">
+                    <th scope="col" className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">
                       Action
                     </th>
                   </tr>
@@ -226,7 +260,7 @@ const Inventory = () => {
                         <Badge tone={item.stock <= 0 ? 'red' : 'yellow'}>{item.stock} left</Badge>
                       </td>
                       <td className="px-4 py-3 text-right text-sm">
-                        <Button variant="primary" onClick={() => setAdjustTarget(item)}>
+                        <Button variant="primary" onClick={() => setAdjustTarget(item)} aria-label={`Restock ${item.name}`}>
                           Restock
                         </Button>
                       </td>
@@ -250,80 +284,45 @@ const Inventory = () => {
               id="inventory-search"
               type="search"
               placeholder="Search by name or brand…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              value={filters.search}
+              onChange={(e) => setFilter('search', e.target.value)}
               className="w-full rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             />
           </div>
         </div>
 
-        {error && <ErrorState message={error} onRetry={fetchProducts} className="mb-4" />}
-
-        {loading ? (
-          <LoadingState label="Loading inventory…" />
-        ) : products.length === 0 ? (
-          <EmptyState
-            icon="warehouse"
-            title="No products found"
-            description={
-              search ? 'No products match that search.' : 'Products will appear here once added.'
-            }
-          />
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Product Name
-                    </th>
-                    <th className="hidden px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sm:table-cell">
-                      Brand
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Stock
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Action
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {products.map((product) => {
-                    const label = stockLabel(product.stock ?? 0, threshold);
-                    return (
-                      <tr key={product.id}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {product.name}
-                        </td>
-                        <td className="hidden px-6 py-4 whitespace-nowrap text-sm text-gray-500 sm:table-cell">
-                          {product.brand}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {product.stock}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          <Badge tone={statusTone(label)}>{label}</Badge>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                          <Button variant="secondary" onClick={() => setAdjustTarget(product)}>
-                            Adjust Stock
-                          </Button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            <Pagination page={meta.page} totalPages={meta.totalPages} total={meta.total} onPageChange={setPage} />
-          </>
-        )}
+        <DataTable
+          columns={inventoryColumns}
+          rows={products}
+          getRowKey={(product) => product.id}
+          caption="Inventory"
+          loading={loading}
+          loadingLabel="Loading inventory…"
+          error={error}
+          onRetry={refetchProducts}
+          refreshing={refreshing}
+          isStale={isStale}
+          empty={{
+            icon: 'warehouse',
+            title: 'No products found',
+            description: hasActiveFilters
+              ? 'No products match that search.'
+              : 'Products will appear here once added.',
+          }}
+          meta={meta}
+          onPageChange={setPage}
+          mobileCardTitle={(product) => product.name}
+          mobileCardSubtitle={(product) => product.brand}
+          renderRowActions={(product) => (
+            <Button
+              variant="secondary"
+              onClick={() => setAdjustTarget(product)}
+              aria-label={`Adjust stock for ${product.name}`}
+            >
+              Adjust Stock
+            </Button>
+          )}
+        />
       </Panel>
 
       {adjustTarget && (

@@ -87,6 +87,7 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
   const submittingRef = useRef(false);
   const isMountedRef = useRef(true);
   const abortControllerRef = useRef(null);
+  const headingRef = useRef(null);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -94,6 +95,14 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
       isMountedRef.current = false;
       abortControllerRef.current?.abort();
     };
+  }, []);
+
+  // This form appears/disappears inline on the Products page rather than
+  // in a dialog (see Products.jsx), so nothing else moves focus into it —
+  // without this, a keyboard/screen-reader admin who just activated "Add
+  // Product"/"Edit" has no indication the form appeared at all.
+  useEffect(() => {
+    headingRef.current?.focus();
   }, []);
 
   useEffect(() => {
@@ -258,10 +267,16 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
 
   const FieldError = ({ field }) =>
     fieldErrors[field] ? (
-      <p className="mt-1 text-sm text-red-600" role="alert">
+      <p id={`product-${field}-error`} className="mt-1 text-sm text-red-600" role="alert">
         {fieldErrors[field]}
       </p>
     ) : null;
+
+  // aria-describedby should only point at an error message that actually
+  // exists in the DOM — pointing at an id that isn't there is worse than
+  // omitting the attribute, so this returns undefined (not a dangling id)
+  // when the field has no current error.
+  const describedBy = (field) => (fieldErrors[field] ? `product-${field}-error` : undefined);
 
   const submitLabel = () => {
     if (phase === "uploading") return `Uploading… ${uploadProgress}%`;
@@ -271,28 +286,33 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 bg-white p-6 rounded shadow max-w-xl mx-auto">
-      <h2 className="text-xl font-semibold mb-4">
+      <h2 ref={headingRef} tabIndex={-1} className="text-xl font-semibold mb-4 focus:outline-none">
         {isEditing ? "Edit Product" : "Add New Product"}
       </h2>
 
       {error && <ErrorState message={error} />}
 
       <div>
+        <label htmlFor="product-name" className="mb-1 block text-sm font-medium text-gray-700">
+          Product name
+        </label>
         <input
+          id="product-name"
           type="text"
           name="name"
-          placeholder="Product Name"
+          placeholder="e.g. Heavy Duty Tarpaulin"
           value={formData.name}
           onChange={handleChange}
           aria-invalid={Boolean(fieldErrors.name)}
+          aria-describedby={describedBy("name")}
           className={fieldClass("name")}
         />
         <FieldError field="name" />
       </div>
 
-      <div>
-        <label className="block font-medium text-gray-700 mb-2">Select Categories</label>
-        <div className="grid grid-cols-2 gap-2">
+      <fieldset>
+        <legend className="mb-2 block font-medium text-gray-700">Select categories</legend>
+        <div className="grid grid-cols-2 gap-2" aria-describedby={describedBy("category")}>
           {categoryOptions.map((cat) => (
             <label key={cat} className="flex items-center space-x-2">
               <input
@@ -316,58 +336,78 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
           ))}
         </div>
         <FieldError field="category" />
-      </div>
+      </fieldset>
 
       <div>
+        <label htmlFor="product-brand" className="mb-1 block text-sm font-medium text-gray-700">
+          Brand
+        </label>
         <input
+          id="product-brand"
           type="text"
           name="brand"
-          placeholder="Brand"
+          placeholder="e.g. Advika"
           value={formData.brand}
           onChange={handleChange}
           aria-invalid={Boolean(fieldErrors.brand)}
+          aria-describedby={describedBy("brand")}
           className={fieldClass("brand")}
         />
         <FieldError field="brand" />
       </div>
 
       <div>
+        <label htmlFor="product-price" className="mb-1 block text-sm font-medium text-gray-700">
+          Price (₹)
+        </label>
         <input
+          id="product-price"
           type="number"
           name="price"
-          placeholder="Price"
+          placeholder="0.00"
           value={formData.price}
           onChange={handleChange}
           step="0.01"
           min="0.01"
           aria-invalid={Boolean(fieldErrors.price)}
+          aria-describedby={describedBy("price")}
           className={fieldClass("price")}
         />
         <FieldError field="price" />
       </div>
 
       <div>
+        <label htmlFor="product-stock" className="mb-1 block text-sm font-medium text-gray-700">
+          Stock quantity
+        </label>
         <input
+          id="product-stock"
           type="number"
           name="stock"
-          placeholder="Stock Quantity"
+          placeholder="0"
           value={formData.stock}
           onChange={handleChange}
           step="1"
           min="0"
           aria-invalid={Boolean(fieldErrors.stock)}
+          aria-describedby={describedBy("stock")}
           className={fieldClass("stock")}
         />
         <FieldError field="stock" />
       </div>
 
       <div>
+        <label htmlFor="product-description" className="mb-1 block text-sm font-medium text-gray-700">
+          Description
+        </label>
         <textarea
+          id="product-description"
           name="description"
-          placeholder="Product Description"
+          placeholder="Describe the product…"
           value={formData.description}
           onChange={handleChange}
           aria-invalid={Boolean(fieldErrors.description)}
+          aria-describedby={describedBy("description")}
           className={fieldClass("description")}
         ></textarea>
         <FieldError field="description" />
@@ -381,15 +421,21 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
           onChange={handleChange}
           className="mr-2"
         />
-        New Arrival?
+        New arrival?
       </label>
 
       <div>
+        <label htmlFor="product-images" className="mb-1 block text-sm font-medium text-gray-700">
+          Product images
+        </label>
         <input
+          id="product-images"
           type="file"
           accept="image/*"
           multiple
           onChange={handleImageChange}
+          aria-invalid={Boolean(fieldErrors.images)}
+          aria-describedby={describedBy("images")}
           className={fieldClass("images")}
         />
         {isEditing && (
@@ -401,7 +447,14 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
       </div>
 
       {phase === "uploading" && (
-        <div className="w-full bg-gray-200 rounded h-2" role="progressbar" aria-valuenow={uploadProgress} aria-valuemin={0} aria-valuemax={100}>
+        <div
+          className="w-full bg-gray-200 rounded h-2"
+          role="progressbar"
+          aria-label="Upload progress"
+          aria-valuenow={uploadProgress}
+          aria-valuemin={0}
+          aria-valuemax={100}
+        >
           <div
             className="bg-blue-600 h-2 rounded transition-all"
             style={{ width: `${uploadProgress}%` }}

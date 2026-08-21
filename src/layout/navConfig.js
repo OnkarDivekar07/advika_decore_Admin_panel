@@ -6,6 +6,8 @@
 // drift apart the way two hand-written copies eventually would.
 export const NAV_ITEMS = [
   { to: '/dashboard', icon: 'tachometer-alt', label: 'Dashboard' },
+  { to: '/alerts', icon: 'bell', label: 'Alerts' },
+  { to: '/analytics', icon: 'chart-line', label: 'Analytics' },
   { to: '/products', icon: 'box-open', label: 'Products' },
   { to: '/orders', icon: 'shopping-cart', label: 'Orders' },
   { to: '/users', icon: 'users', label: 'Users' },

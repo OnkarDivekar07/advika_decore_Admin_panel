@@ -91,6 +91,38 @@ describe('apiClient', () => {
       expect(handler).not.toHaveBeenCalled();
     });
 
+    // PHASE 13 — see apiClient.js's isTokenFailure comment: authenticate.js
+    // returns 400 (not 401) for both a malformed and an EXPIRED token, so
+    // an admin's 1-hour session silently timing out must still be caught
+    // here or they're left looking at broken screens with no redirect.
+    it('treats a 400 "Invalid token." as an expired session (backend\'s authenticate.js quirk)', async () => {
+      setStoredSession('jwt-token', { id: '1' });
+      const handler = jest.fn();
+      setSessionInvalidatedHandler(handler);
+
+      await expect(
+        responseInterceptor().rejected(makeError(400, '/api/admin/stats', { error: 'Invalid token.' }))
+      ).rejects.toBeDefined();
+
+      expect(getStoredToken()).toBeNull();
+      expect(handler).toHaveBeenCalledWith('expired');
+    });
+
+    it('does not treat an unrelated 400 validation error as a session failure', async () => {
+      setStoredSession('jwt-token', { id: '1' });
+      const handler = jest.fn();
+      setSessionInvalidatedHandler(handler);
+
+      await expect(
+        responseInterceptor().rejected(
+          makeError(400, '/api/inventory/prod_1', { message: 'Unknown stock action: teleport' })
+        )
+      ).rejects.toBeDefined();
+
+      expect(getStoredToken()).toBe('jwt-token');
+      expect(handler).not.toHaveBeenCalled();
+    });
+
     it('rejects without throwing when there is no handler registered', async () => {
       setStoredSession('jwt-token', { id: '1' });
       setSessionInvalidatedHandler(null);
