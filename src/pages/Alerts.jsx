@@ -19,7 +19,7 @@
 // backend doesn't actually track. An item disappears from here the same way
 // it appeared: because the underlying condition (stock, order, payment,
 // shipment) actually changed. This page never invents a row.
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import apiClient from '../api/apiClient';
 import PageHeader from '../layout/PageHeader';
@@ -79,6 +79,15 @@ const Alerts = () => {
   const [alerts, setAlerts] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  // Unlike every list page's useAdminListQuery (which keeps stale-but-valid
+  // data on screen after a failed refresh, see its own `isStale` handling),
+  // this page used to call setAlerts(null) unconditionally on any fetch
+  // failure — so an admin with Alerts open, hitting a transient network
+  // blip on a threshold change or manual refresh, would see all four
+  // sections (low stock, pending orders, payment/shipment exceptions)
+  // blank out even though the previously-loaded data was still perfectly
+  // valid. Only clear `alerts` if we've never successfully loaded it.
+  const hasLoadedRef = useRef(false);
 
   const fetchAlerts = useCallback(async () => {
     try {
@@ -88,10 +97,11 @@ const Alerts = () => {
         params: { lowStockThreshold },
       });
       setAlerts(res.data.data);
+      hasLoadedRef.current = true;
     } catch (err) {
       console.error('Failed to fetch operational alerts', err);
       setError('Failed to load operational alerts.');
-      setAlerts(null);
+      if (!hasLoadedRef.current) setAlerts(null);
     } finally {
       setLoading(false);
     }
@@ -327,7 +337,7 @@ const Alerts = () => {
               )}
             </AlertSection>
 
-            <p className="text-xs text-gray-400">
+            <p className="text-xs text-gray-600">
               Live figures from <code>GET /api/admin/alerts</code>, generated {formatDate(alerts.generatedAt)}.
             </p>
           </>

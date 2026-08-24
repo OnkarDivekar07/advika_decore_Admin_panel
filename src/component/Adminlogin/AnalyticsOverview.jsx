@@ -71,11 +71,11 @@ function KpiCard({ id, icon, label, value, color, badge, definition }) {
       </div>
       <div className="min-w-0">
         <p className="truncate text-sm font-medium text-gray-500" id={id}>
-          {label} {badge && <span className="text-gray-400">({badge})</span>}
+          {label} {badge && <span className="text-gray-600">({badge})</span>}
         </p>
         <p className="text-2xl font-semibold text-gray-800">{value}</p>
         {definition && (
-          <p className="mt-1 max-w-xs text-xs leading-snug text-gray-400" title={definition}>
+          <p className="mt-1 max-w-xs text-xs leading-snug text-gray-600" title={definition}>
             {definition}
           </p>
         )}
@@ -164,7 +164,7 @@ function AnalyticsOverview() {
               onChange={(e) => setFilters((prev) => ({ ...prev, dateFrom: e.target.value }))}
               className="w-full rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             />
-            <span className="text-gray-400">–</span>
+            <span className="text-gray-600">–</span>
             <label htmlFor="analytics-date-to" className="sr-only">To date</label>
             <input
               id="analytics-date-to"
@@ -194,7 +194,7 @@ function AnalyticsOverview() {
             </Button>
           )}
         </div>
-        <p className="mt-2 text-xs text-gray-400">
+        <p className="mt-2 text-xs text-gray-600">
           Leave dates blank for all-time KPIs. The revenue chart defaults to the trailing 30 days when no dates are set.
         </p>
       </Panel>
@@ -225,14 +225,14 @@ function AnalyticsOverview() {
           <div>
             <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Revenue Trend</h2>
             {resolvedRangeLabel && (
-              <p className="text-xs text-gray-400">{resolvedRangeLabel} · {trend?.granularity}</p>
+              <p className="text-xs text-gray-600">{resolvedRangeLabel} · {trend?.granularity}</p>
             )}
           </div>
-          {refreshing && <span className="text-xs text-gray-400">Refreshing…</span>}
+          {refreshing && <span className="text-xs text-gray-600">Refreshing…</span>}
         </div>
 
         {loading ? (
-          <div className="flex h-56 animate-pulse items-center justify-center rounded-md bg-gray-100 text-sm text-gray-400" role="status" aria-label="Loading revenue trend">
+          <div className="flex h-56 animate-pulse items-center justify-center rounded-md bg-gray-100 text-sm text-gray-600" role="status" aria-label="Loading revenue trend">
             Loading…
           </div>
         ) : (
@@ -240,14 +240,14 @@ function AnalyticsOverview() {
         )}
 
         {trend?.definitions && (
-          <p className="mt-3 text-xs text-gray-400">
+          <p className="mt-3 text-xs text-gray-600">
             {trend.definitions.revenue}
           </p>
         )}
       </Panel>
 
       {!loading && !error && overview && (
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-gray-600">
           Live figures from <code>GET /api/admin/analytics/overview</code> and{' '}
           <code>GET /api/admin/analytics/revenue-trend</code>. No profit or inventory-valuation figure is shown —
           the catalog has no recorded product cost, so none can be calculated authoritatively.

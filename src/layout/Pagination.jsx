@@ -15,7 +15,7 @@ const Pagination = ({ page, totalPages, total, onPageChange }) => {
   return (
     <div className="mt-4 flex flex-col items-center justify-between gap-3 border-t border-gray-200 pt-4 sm:flex-row">
       <p className="text-sm text-gray-500">
-        Page {page} of {totalPages} <span className="text-gray-400">({total} total)</span>
+        Page {page} of {totalPages} <span className="text-gray-600">({total} total)</span>
       </p>
       <div className="flex gap-2">
         <Button

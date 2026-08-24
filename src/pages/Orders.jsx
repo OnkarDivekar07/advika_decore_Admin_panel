@@ -154,7 +154,7 @@ const Orders = () => {
         order.shipmentStatus ? (
           <Badge tone={statusTone(order.shipmentStatus)}>{formatEnumLabel(order.shipmentStatus)}</Badge>
         ) : (
-          <span className="text-gray-400">—</span>
+          <span className="text-gray-600">—</span>
         ),
     },
   ];
@@ -220,7 +220,7 @@ const Orders = () => {
               onChange={(e) => setFilter("dateFrom", e.target.value)}
               className="w-full rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             />
-            <span className="text-gray-400">–</span>
+            <span className="text-gray-600">–</span>
             <label htmlFor="order-date-to" className="sr-only">
               Placed on or before
             </label>

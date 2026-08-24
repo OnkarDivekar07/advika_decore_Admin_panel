@@ -28,8 +28,9 @@ import ConfirmDialog from "../layout/ConfirmDialog";
 import DataTable from "../layout/DataTable";
 import Badge, { statusTone } from "../layout/Badge";
 import useAdminListQuery from "../hooks/useAdminListQuery";
+import { PRODUCT_CATEGORIES } from "../utils/productCategories";
 
-const categoryOptions = ["Truck", "Tempo", "Pickup", "Car", "Two Wheeler", "Tractor"];
+const categoryOptions = PRODUCT_CATEGORIES;
 
 // Mirrors Inventory.jsx's own LOW_STOCK_THRESHOLD, which itself mirrors
 // the backend's GET /api/inventory/low-stock default (see
@@ -162,7 +163,7 @@ const Products = () => {
       hideBelow: "lg",
       mobileHidden: true,
       accessor: (product) => (
-        <span className="font-mono text-xs text-gray-400" title={product.id}>
+        <span className="font-mono text-xs text-gray-600" title={product.id}>
           {String(product.id).slice(-8)}
         </span>
       ),
@@ -207,7 +208,7 @@ const Products = () => {
       header: "New Arrival",
       hideBelow: "lg",
       accessor: (product) =>
-        product.isNewArrival ? <Badge tone="blue">New Arrival</Badge> : <span className="text-gray-400">—</span>,
+        product.isNewArrival ? <Badge tone="blue">New Arrival</Badge> : <span className="text-gray-600">—</span>,
     },
   ];
 

@@ -109,15 +109,15 @@ const Settings = () => {
           {user ? (
             <dl className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div>
-                <dt className="text-xs uppercase tracking-wide text-gray-400">Name</dt>
+                <dt className="text-xs uppercase tracking-wide text-gray-600">Name</dt>
                 <dd className="mt-0.5 text-sm font-medium text-gray-900">{user.name}</dd>
               </div>
               <div>
-                <dt className="text-xs uppercase tracking-wide text-gray-400">Email</dt>
+                <dt className="text-xs uppercase tracking-wide text-gray-600">Email</dt>
                 <dd className="mt-0.5 text-sm font-medium text-gray-900">{user.email}</dd>
               </div>
               <div>
-                <dt className="text-xs uppercase tracking-wide text-gray-400">Role</dt>
+                <dt className="text-xs uppercase tracking-wide text-gray-600">Role</dt>
                 <dd className="mt-0.5">
                   <Badge tone="blue">{user.role}</Badge>
                 </dd>
@@ -182,7 +182,7 @@ const Settings = () => {
                   </ul>
                 )}
                 {checkedAt && (
-                  <p className="mt-3 text-xs text-gray-400">
+                  <p className="mt-3 text-xs text-gray-600">
                     Last checked {formatTimestamp(checkedAt.toISOString())}
                     {formatTimestamp(health.timestamp) && ` · reported ${formatTimestamp(health.timestamp)}`}
                   </p>
@@ -194,7 +194,7 @@ const Settings = () => {
           </div>
 
           {process.env.REACT_APP_API_URL && (
-            <p className="mt-4 border-t border-gray-100 pt-3 text-xs text-gray-400">
+            <p className="mt-4 border-t border-gray-100 pt-3 text-xs text-gray-600">
               API endpoint: <span className="font-mono">{process.env.REACT_APP_API_URL}</span>
             </p>
           )}

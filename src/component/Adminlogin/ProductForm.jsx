@@ -3,8 +3,127 @@ import apiClient from "../../api/apiClient";
 import { waitForProductJob } from "../../api/productJobs";
 import ErrorState from "../../layout/ErrorState";
 import Button from "../../layout/Button";
+import {
+  PRODUCT_CATEGORIES,
+  VOLTAGE_REQUIRED_CATEGORIES,
+  VALID_VOLTAGES,
+} from "../../utils/productCategories";
 
-const categoryOptions = ["Truck", "Tempo", "Pickup", "Car", "Two Wheeler", "Tractor"];
+const categoryOptions = PRODUCT_CATEGORIES;
+
+// Advisory only — mirrors bannerManagemen.jsx's own validateSelectedFile
+// (same 5MB ceiling, same image-type check, matching the backend's actual
+// multer config: src/config/multer.js's ALLOWED_MIME_TYPES/MAX_UPLOAD_SIZE_MB).
+// This form previously had zero client-side image validation at all —
+// `accept="image/*"` on the file input isn't enforced by browsers once an
+// admin picks "All Files," so a huge or non-image file would run a full
+// upload attempt before the backend's own limits finally rejected it.
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB
+
+const validateSelectedFile = (file) => {
+  if (!file.type || !file.type.startsWith("image/")) {
+    return `"${file.name}" isn't an image file (JPG, PNG, or WEBP).`;
+  }
+  if (file.size > MAX_IMAGE_BYTES) {
+    return `"${file.name}" is too large — please use files under 5MB.`;
+  }
+  return "";
+};
+
+// Optional numeric fields the backend validates with a plain `.optional()`
+// (see backend/src/modules/product/product.validation.js) — express-
+// validator's default `.optional()` only skips a field when the key is
+// entirely absent from req.body, NOT when it's an empty string. Since
+// every value in this form's FormData submission is a string, leaving one
+// of these blank and sending `""` would fail `isFloat({ gt: 0 })`/
+// `isInt({ min: 0 })` server-side instead of being treated as "not
+// provided" — so handleSubmit below omits the key entirely when blank
+// rather than sending an empty string.
+const OPTIONAL_NUMERIC_FIELDS = new Set(["mrp", "rating", "reviewCount"]);
+
+// "Key: Value" per line -> { Key: "Value", ... }. Kept as a single
+// textarea (matching the compact style of the rest of this form) rather
+// than a full repeatable key/value row UI — specs are typically a handful
+// of short pairs (Wattage, Lumens, IP Rating) an admin types quickly, not
+// a large structured dataset.
+const parseSpecsText = (text) => {
+  const entries = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const idx = line.indexOf(":");
+      if (idx === -1) return null;
+      const key = line.slice(0, idx).trim();
+      const value = line.slice(idx + 1).trim();
+      return key && value ? [key, value] : null;
+    })
+    .filter(Boolean);
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+};
+
+const specsToText = (specs) => {
+  if (!specs || typeof specs !== "object") return "";
+  return Object.entries(specs)
+    .map(([key, value]) => `${key}: ${value}`)
+    .join("\n");
+};
+
+// Vehicle-compatibility lists, comma- or newline-separated, one textarea
+// per voltage — matches the backend's `compatibility` shape:
+// { "12V": ["Tata Ace", ...], "24V": ["Tata Signa 4825", ...] }.
+const parseVehicleList = (text) =>
+  text
+    .split(/[,\n]/)
+    .map((v) => v.trim())
+    .filter(Boolean);
+
+const buildCompatibility = (text12v, text24v) => {
+  const compat = {};
+  const v12 = parseVehicleList(text12v);
+  const v24 = parseVehicleList(text24v);
+  if (v12.length > 0) compat["12V"] = v12;
+  if (v24.length > 0) compat["24V"] = v24;
+  return Object.keys(compat).length > 0 ? compat : undefined;
+};
+
+const compatibilityToText = (compat, key) => {
+  if (!compat || !Array.isArray(compat[key])) return "";
+  return compat[key].join(", ");
+};
+
+// Variants are repeatable groups (e.g. "Wattage") each with its own
+// options (e.g. "72W" at one price, "100W" at another). Local editing
+// state keeps a synthetic `id` per group/option purely for stable React
+// keys — it's never sent to the backend, which only wants
+// { label, defaultIndex, options: [{ label, price, mrp? }] } per group
+// (see product schema's `variants` Json? field). `defaultIndex` is
+// always 0 here (first option defaults selected) — the backend doesn't
+// require otherwise, and picking a different default is a rare enough
+// case to leave for direct API use rather than complicating this UI.
+const emptyVariantOption = (id) => ({ id, label: "", price: "", mrp: "" });
+const emptyVariantGroup = (id, optionId) => ({
+  id,
+  label: "",
+  options: [emptyVariantOption(optionId)],
+});
+
+const buildVariants = (groups) => {
+  const result = groups
+    .map((g) => ({
+      label: g.label.trim(),
+      defaultIndex: 0,
+      options: g.options
+        .filter((o) => o.label.trim() && o.price !== "")
+        .map((o) => {
+          const opt = { label: o.label.trim(), price: Number(o.price) };
+          if (o.mrp !== "") opt.mrp = Number(o.mrp);
+          return opt;
+        }),
+    }))
+    .filter((g) => g.label && g.options.length > 0);
+  return result.length > 0 ? result : undefined;
+};
 
 // Mirrors backend/src/modules/product/product.validation.js so obviously
 // invalid input is caught before a round trip — but this is a UX
@@ -53,6 +172,37 @@ const validateClientSide = (formData, images, isEditing) => {
     errors.images = "At least one product image is required";
   }
 
+  // --- Advika Auto storefront fields ---------------------------------
+  const needsVoltage = formData.category.some((c) =>
+    VOLTAGE_REQUIRED_CATEGORIES.includes(c)
+  );
+  if (needsVoltage && !formData.voltage) {
+    errors.voltage = `Voltage is required for ${VOLTAGE_REQUIRED_CATEGORIES.join("/")} products`;
+  } else if (formData.voltage && !VALID_VOLTAGES.includes(formData.voltage)) {
+    errors.voltage = `Voltage must be one of ${VALID_VOLTAGES.join(", ")}`;
+  }
+
+  if (formData.mrp !== "") {
+    const mrp = Number(formData.mrp);
+    if (Number.isNaN(mrp) || mrp <= 0) {
+      errors.mrp = "MRP must be a number greater than 0";
+    }
+  }
+
+  if (formData.rating !== "") {
+    const rating = Number(formData.rating);
+    if (Number.isNaN(rating) || rating < 0 || rating > 5) {
+      errors.rating = "Rating must be a number between 0 and 5";
+    }
+  }
+
+  if (formData.reviewCount !== "") {
+    const reviewCount = Number(formData.reviewCount);
+    if (Number.isNaN(reviewCount) || reviewCount < 0 || !Number.isInteger(reviewCount)) {
+      errors.reviewCount = "Review count must be a non-negative integer";
+    }
+  }
+
   return errors;
 };
 
@@ -67,7 +217,20 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
     stock: "",
     description: "",
     isNewArrival: false,
+    mrp: "",
+    voltage: "",
+    isBestSeller: false,
+    rating: "",
+    reviewCount: "",
   });
+
+  const [specsText, setSpecsText] = useState("");
+  const [compat12vText, setCompat12vText] = useState("");
+  const [compat24vText, setCompat24vText] = useState("");
+
+  const nextRowIdRef = useRef(0);
+  const newRowId = () => `row-${nextRowIdRef.current++}`;
+  const [variantGroups, setVariantGroups] = useState([]);
 
   const [images, setImages] = useState([]);
   const [fieldErrors, setFieldErrors] = useState({});
@@ -115,8 +278,31 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
         stock: initialData.stock ?? "",
         description: initialData.description || "",
         isNewArrival: initialData.isNewArrival || false,
+        mrp: initialData.mrp ?? "",
+        voltage: initialData.voltage || "",
+        isBestSeller: initialData.isBestSeller || false,
+        rating: initialData.rating ?? "",
+        reviewCount: initialData.reviewCount ?? "",
       });
+      setSpecsText(specsToText(initialData.specs));
+      setCompat12vText(compatibilityToText(initialData.compatibility, "12V"));
+      setCompat24vText(compatibilityToText(initialData.compatibility, "24V"));
+      if (Array.isArray(initialData.variants) && initialData.variants.length > 0) {
+        setVariantGroups(
+          initialData.variants.map((group) => ({
+            id: newRowId(),
+            label: group.label || "",
+            options: (group.options || []).map((option) => ({
+              id: newRowId(),
+              label: option.label || "",
+              price: option.price ?? "",
+              mrp: option.mrp ?? "",
+            })),
+          }))
+        );
+      }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialData]);
 
   const handleChange = (e) => {
@@ -131,8 +317,65 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
   };
 
   const handleImageChange = (e) => {
-    setImages([...e.target.files]);
+    const selected = [...e.target.files];
+    for (const file of selected) {
+      const message = validateSelectedFile(file);
+      if (message) {
+        setImages([]);
+        setFieldErrors((prev) => ({ ...prev, images: message }));
+        e.target.value = ""; // allow re-selecting the same (now-corrected) filename
+        return;
+      }
+    }
+    setImages(selected);
     setFieldErrors((prev) => (prev.images ? { ...prev, images: undefined } : prev));
+  };
+
+  const addVariantGroup = () => {
+    setVariantGroups((prev) => [
+      ...prev,
+      emptyVariantGroup(newRowId(), newRowId()),
+    ]);
+  };
+  const removeVariantGroup = (groupId) => {
+    setVariantGroups((prev) => prev.filter((g) => g.id !== groupId));
+  };
+  const updateVariantGroupLabel = (groupId, label) => {
+    setVariantGroups((prev) =>
+      prev.map((g) => (g.id === groupId ? { ...g, label } : g))
+    );
+  };
+  const addVariantOption = (groupId) => {
+    setVariantGroups((prev) =>
+      prev.map((g) =>
+        g.id === groupId
+          ? { ...g, options: [...g.options, emptyVariantOption(newRowId())] }
+          : g
+      )
+    );
+  };
+  const removeVariantOption = (groupId, optionId) => {
+    setVariantGroups((prev) =>
+      prev.map((g) =>
+        g.id === groupId
+          ? { ...g, options: g.options.filter((o) => o.id !== optionId) }
+          : g
+      )
+    );
+  };
+  const updateVariantOption = (groupId, optionId, field, value) => {
+    setVariantGroups((prev) =>
+      prev.map((g) =>
+        g.id === groupId
+          ? {
+              ...g,
+              options: g.options.map((o) =>
+                o.id === optionId ? { ...o, [field]: value } : o
+              ),
+            }
+          : g
+      )
+    );
   };
 
   const isBusy = phase === "uploading" || phase === "processing";
@@ -170,10 +413,23 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
           // `category[]` fields (which silently never reach req.body.category
           // at all and previously made every category selection a no-op).
           form.append("category", val.join(","));
-        } else {
-          form.append(key, val);
+          return;
         }
+        if ((OPTIONAL_NUMERIC_FIELDS.has(key) || key === "voltage") && val === "") {
+          // Omit entirely — see OPTIONAL_NUMERIC_FIELDS' comment above.
+          return;
+        }
+        form.append(key, val);
       });
+
+      const specs = parseSpecsText(specsText);
+      if (specs) form.append("specs", JSON.stringify(specs));
+
+      const compatibility = buildCompatibility(compat12vText, compat24vText);
+      if (compatibility) form.append("compatibility", JSON.stringify(compatibility));
+
+      const variants = buildVariants(variantGroups);
+      if (variants) form.append("variants", JSON.stringify(variants));
 
       images.forEach((image) => {
         form.append("images", image);
@@ -284,6 +540,10 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
     return isEditing ? "Update Product" : "Add Product";
   };
 
+  const needsVoltage = formData.category.some((c) =>
+    VOLTAGE_REQUIRED_CATEGORIES.includes(c)
+  );
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4 bg-white p-6 rounded shadow max-w-xl mx-auto">
       <h2 ref={headingRef} tabIndex={-1} className="text-xl font-semibold mb-4 focus:outline-none">
@@ -356,24 +616,46 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
         <FieldError field="brand" />
       </div>
 
-      <div>
-        <label htmlFor="product-price" className="mb-1 block text-sm font-medium text-gray-700">
-          Price (₹)
-        </label>
-        <input
-          id="product-price"
-          type="number"
-          name="price"
-          placeholder="0.00"
-          value={formData.price}
-          onChange={handleChange}
-          step="0.01"
-          min="0.01"
-          aria-invalid={Boolean(fieldErrors.price)}
-          aria-describedby={describedBy("price")}
-          className={fieldClass("price")}
-        />
-        <FieldError field="price" />
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="product-price" className="mb-1 block text-sm font-medium text-gray-700">
+            Price (₹)
+          </label>
+          <input
+            id="product-price"
+            type="number"
+            name="price"
+            placeholder="0.00"
+            value={formData.price}
+            onChange={handleChange}
+            step="0.01"
+            min="0.01"
+            aria-invalid={Boolean(fieldErrors.price)}
+            aria-describedby={describedBy("price")}
+            className={fieldClass("price")}
+          />
+          <FieldError field="price" />
+        </div>
+
+        <div>
+          <label htmlFor="product-mrp" className="mb-1 block text-sm font-medium text-gray-700">
+            MRP (₹, optional)
+          </label>
+          <input
+            id="product-mrp"
+            type="number"
+            name="mrp"
+            placeholder="Struck-through 'was' price"
+            value={formData.mrp}
+            onChange={handleChange}
+            step="0.01"
+            min="0.01"
+            aria-invalid={Boolean(fieldErrors.mrp)}
+            aria-describedby={describedBy("mrp")}
+            className={fieldClass("mrp")}
+          />
+          <FieldError field="mrp" />
+        </div>
       </div>
 
       <div>
@@ -397,6 +679,29 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
       </div>
 
       <div>
+        <label htmlFor="product-voltage" className="mb-1 block text-sm font-medium text-gray-700">
+          Voltage{needsVoltage ? " (required for this category)" : " (optional)"}
+        </label>
+        <select
+          id="product-voltage"
+          name="voltage"
+          value={formData.voltage}
+          onChange={handleChange}
+          aria-invalid={Boolean(fieldErrors.voltage)}
+          aria-describedby={describedBy("voltage")}
+          className={fieldClass("voltage")}
+        >
+          <option value="">No voltage (non-electrical part)</option>
+          {VALID_VOLTAGES.map((v) => (
+            <option key={v} value={v}>
+              {v}
+            </option>
+          ))}
+        </select>
+        <FieldError field="voltage" />
+      </div>
+
+      <div>
         <label htmlFor="product-description" className="mb-1 block text-sm font-medium text-gray-700">
           Description
         </label>
@@ -413,6 +718,201 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
         <FieldError field="description" />
       </div>
 
+      <div>
+        <label htmlFor="product-specs" className="mb-1 block text-sm font-medium text-gray-700">
+          Specifications (optional, one per line as "Key: Value")
+        </label>
+        <textarea
+          id="product-specs"
+          name="specs"
+          placeholder={"Wattage: 100W\nLumens: 9,000 lm\nIP Rating: IP68"}
+          value={specsText}
+          onChange={(e) => {
+            setSpecsText(e.target.value);
+            setFieldErrors((prev) => (prev.specs ? { ...prev, specs: undefined } : prev));
+          }}
+          rows={4}
+          aria-invalid={Boolean(fieldErrors.specs)}
+          aria-describedby={describedBy("specs")}
+          className={fieldClass("specs")}
+        ></textarea>
+        <FieldError field="specs" />
+      </div>
+
+      <fieldset>
+        <legend className="mb-1 block text-sm font-medium text-gray-700">
+          Vehicle compatibility (optional)
+        </legend>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label htmlFor="product-compat-12v" className="mb-1 block text-xs text-gray-600">
+              12V vehicles (comma-separated)
+            </label>
+            <textarea
+              id="product-compat-12v"
+              placeholder="Tata Ace, Mahindra Bolero Pickup"
+              value={compat12vText}
+              onChange={(e) => {
+                setCompat12vText(e.target.value);
+                setFieldErrors((prev) =>
+                  prev.compatibility ? { ...prev, compatibility: undefined } : prev
+                );
+              }}
+              rows={2}
+              className={fieldClass("compatibility")}
+            ></textarea>
+          </div>
+          <div>
+            <label htmlFor="product-compat-24v" className="mb-1 block text-xs text-gray-600">
+              24V vehicles (comma-separated)
+            </label>
+            <textarea
+              id="product-compat-24v"
+              placeholder="Tata Signa 4825, Ashok Leyland 3718"
+              value={compat24vText}
+              onChange={(e) => {
+                setCompat24vText(e.target.value);
+                setFieldErrors((prev) =>
+                  prev.compatibility ? { ...prev, compatibility: undefined } : prev
+                );
+              }}
+              rows={2}
+              className={fieldClass("compatibility")}
+            ></textarea>
+          </div>
+        </div>
+        <FieldError field="compatibility" />
+      </fieldset>
+
+      <fieldset>
+        <legend className="mb-2 block text-sm font-medium text-gray-700">
+          Variants (optional — e.g. different wattages at different prices)
+        </legend>
+        <div className="space-y-3">
+          {variantGroups.map((group) => (
+            <div key={group.id} className="rounded border border-gray-200 p-3">
+              <div className="mb-2 flex items-center gap-2">
+                <label htmlFor={`variant-label-${group.id}`} className="sr-only">
+                  Variant group name
+                </label>
+                <input
+                  id={`variant-label-${group.id}`}
+                  type="text"
+                  placeholder="e.g. Wattage"
+                  value={group.label}
+                  onChange={(e) => updateVariantGroupLabel(group.id, e.target.value)}
+                  className="w-full p-2 border rounded border-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                />
+                <Button
+                  type="button"
+                  variant="dangerOutline"
+                  onClick={() => removeVariantGroup(group.id)}
+                  aria-label={`Remove variant group${group.label ? ` ${group.label}` : ""}`}
+                >
+                  Remove
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {group.options.map((option) => (
+                  <div key={option.id} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="Option label (e.g. 72W)"
+                      value={option.label}
+                      onChange={(e) =>
+                        updateVariantOption(group.id, option.id, "label", e.target.value)
+                      }
+                      aria-label="Variant option label"
+                      className="flex-1 p-2 border rounded border-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                    />
+                    <input
+                      type="number"
+                      placeholder="Price"
+                      value={option.price}
+                      onChange={(e) =>
+                        updateVariantOption(group.id, option.id, "price", e.target.value)
+                      }
+                      step="0.01"
+                      min="0.01"
+                      aria-label="Variant option price"
+                      className="w-28 p-2 border rounded border-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                    />
+                    <input
+                      type="number"
+                      placeholder="MRP"
+                      value={option.mrp}
+                      onChange={(e) =>
+                        updateVariantOption(group.id, option.id, "mrp", e.target.value)
+                      }
+                      step="0.01"
+                      min="0.01"
+                      aria-label="Variant option MRP"
+                      className="w-28 p-2 border rounded border-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => removeVariantOption(group.id, option.id)}
+                      aria-label="Remove this option"
+                      disabled={group.options.length === 1}
+                    >
+                      ✕
+                    </Button>
+                  </div>
+                ))}
+                <Button type="button" variant="ghost" onClick={() => addVariantOption(group.id)}>
+                  + Add option
+                </Button>
+              </div>
+            </div>
+          ))}
+          <Button type="button" variant="secondary" onClick={addVariantGroup}>
+            + Add variant group
+          </Button>
+        </div>
+        <FieldError field="variants" />
+      </fieldset>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="product-rating" className="mb-1 block text-sm font-medium text-gray-700">
+            Rating (0–5, optional)
+          </label>
+          <input
+            id="product-rating"
+            type="number"
+            name="rating"
+            value={formData.rating}
+            onChange={handleChange}
+            step="0.1"
+            min="0"
+            max="5"
+            aria-invalid={Boolean(fieldErrors.rating)}
+            aria-describedby={describedBy("rating")}
+            className={fieldClass("rating")}
+          />
+          <FieldError field="rating" />
+        </div>
+        <div>
+          <label htmlFor="product-reviewCount" className="mb-1 block text-sm font-medium text-gray-700">
+            Review count (optional)
+          </label>
+          <input
+            id="product-reviewCount"
+            type="number"
+            name="reviewCount"
+            value={formData.reviewCount}
+            onChange={handleChange}
+            step="1"
+            min="0"
+            aria-invalid={Boolean(fieldErrors.reviewCount)}
+            aria-describedby={describedBy("reviewCount")}
+            className={fieldClass("reviewCount")}
+          />
+          <FieldError field="reviewCount" />
+        </div>
+      </div>
+
       <label className="block">
         <input
           type="checkbox"
@@ -422,6 +922,17 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
           className="mr-2"
         />
         New arrival?
+      </label>
+
+      <label className="block">
+        <input
+          type="checkbox"
+          name="isBestSeller"
+          checked={formData.isBestSeller}
+          onChange={handleChange}
+          className="mr-2"
+        />
+        Best seller?
       </label>
 
       <div>

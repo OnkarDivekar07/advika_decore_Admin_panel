@@ -295,7 +295,7 @@ const BannerManagement = () => {
 
         <div>
           <label htmlFor="banner-link-input" className="mb-1 block text-sm font-medium text-gray-700">
-            Link URL <span className="font-normal text-gray-400">(optional)</span>
+            Link URL <span className="font-normal text-gray-600">(optional)</span>
           </label>
           <input
             id="banner-link-input"
@@ -371,7 +371,7 @@ const BannerManagement = () => {
             <div key={b.id} className="flex flex-col items-center rounded-lg border bg-gray-50 p-3">
               {brokenImageIds.has(b.id) ? (
                 <div
-                  className="mb-3 flex h-[150px] w-full flex-col items-center justify-center gap-1 rounded bg-gray-100 text-gray-400"
+                  className="mb-3 flex h-[150px] w-full flex-col items-center justify-center gap-1 rounded bg-gray-100 text-gray-600"
                   role="img"
                   aria-label="Image failed to load"
                 >

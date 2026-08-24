@@ -199,7 +199,7 @@ const UserViewPage = () => {
             <h3 className="mt-6 mb-2 text-sm font-semibold text-gray-600">
               Recent Orders
               {user.orderSummary?.totalOrders > (user.recentOrders?.length || 0) && (
-                <span className="ml-2 font-normal text-gray-400">
+                <span className="ml-2 font-normal text-gray-600">
                   (showing {user.recentOrders.length} most recent of {user.orderSummary.totalOrders})
                 </span>
               )}
@@ -278,7 +278,7 @@ const UserViewPage = () => {
                     )}
                     {address.phone && <p className="text-gray-500">Phone: {address.phone}</p>}
                     {address.deliveryInstructions && (
-                      <p className="mt-1 text-xs text-gray-400">Note: {address.deliveryInstructions}</p>
+                      <p className="mt-1 text-xs text-gray-600">Note: {address.deliveryInstructions}</p>
                     )}
                   </div>
                 ))}

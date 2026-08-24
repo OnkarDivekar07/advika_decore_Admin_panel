@@ -16,7 +16,7 @@ const formatCurrency = (amount) =>
 function RevenueTrendChart({ buckets }) {
   if (!buckets || buckets.length === 0) {
     return (
-      <div className="flex h-56 items-center justify-center rounded-md border border-dashed border-gray-200 text-sm text-gray-400">
+      <div className="flex h-56 items-center justify-center rounded-md border border-dashed border-gray-200 text-sm text-gray-600">
         No paid orders in this range yet.
       </div>
     );

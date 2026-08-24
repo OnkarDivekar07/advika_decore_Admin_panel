@@ -136,7 +136,7 @@ function DashboardCards() {
                   orders with paymentStatus 'paid', not gross order value
                   or a projection. */}
               <p className="truncate text-sm font-medium text-gray-500" id="stat-totalRevenue">
-                Paid Revenue <span className="text-gray-400">(backend-calculated)</span>
+                Paid Revenue <span className="text-gray-600">(backend-calculated)</span>
               </p>
               <p className="text-2xl font-semibold text-gray-800">{formatCurrency(stats.totalRevenue)}</p>
             </div>
@@ -145,7 +145,7 @@ function DashboardCards() {
       </section>
 
       {!loading && !error && stats && (
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-gray-600">
           Live figures from <code>GET /api/admin/stats</code>. Refresh the page or use retry above if a number looks stale.
         </p>
       )}

@@ -462,7 +462,7 @@ const OrderViewPage = () => {
                 </div>
               )}
             </dl>
-            <p className="mt-3 text-xs text-gray-400">
+            <p className="mt-3 text-xs text-gray-600">
               Only payment identifiers returned by the backend are shown here — no card, bank, or
               gateway-secret details are ever stored or displayed.
             </p>

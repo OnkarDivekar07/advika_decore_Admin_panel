@@ -162,7 +162,7 @@ const DataTable = ({
               <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2">
                 {mobileColumns.map((column) => (
                   <div key={column.key} className="min-w-0">
-                    <dt className="text-xs uppercase tracking-wide text-gray-400">
+                    <dt className="text-xs uppercase tracking-wide text-gray-600">
                       {column.mobileLabel || column.header}
                     </dt>
                     <dd className="truncate text-sm text-gray-700">{column.accessor(row)}</dd>

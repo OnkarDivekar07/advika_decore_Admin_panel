@@ -1,0 +1,35 @@
+name: CI
+
+# Runs the test suite and a production build on every push/PR — the gate
+# that was previously missing entirely for this app (the backend and
+# customer storefront each already have one; this admin panel didn't).
+# Nothing here talks to a live backend — every API call in the test suite
+# is mocked at the apiClient module boundary, and `react-scripts build`
+# only needs the source tree.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    env:
+      CI: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test
+        run: npx react-scripts test --watchAll=false
+
+      - name: Build
+        run: npx react-scripts build

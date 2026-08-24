@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ProductForm from '../ProductForm';
 
@@ -27,10 +27,14 @@ const validFields = {
 const fillValidForm = async () => {
   await userEvent.type(screen.getByLabelText('Product name'), validFields.name);
   await userEvent.type(screen.getByLabelText('Brand'), validFields.brand);
-  await userEvent.type(screen.getByLabelText(/price/i), validFields.price);
+  await userEvent.type(screen.getByLabelText(/^price/i), validFields.price);
   await userEvent.type(screen.getByLabelText('Stock quantity'), validFields.stock);
   await userEvent.type(screen.getByLabelText('Description'), validFields.description);
-  await userEvent.click(screen.getByLabelText('Truck'));
+  // A non-voltage-required category (Lights/Electrical & Wiring are the
+  // two the backend's VOLTAGE_REQUIRED_CATEGORIES cover — see
+  // src/utils/productCategories.js), so this base "fill in everything
+  // valid" helper never needs to also pick a voltage.
+  await userEvent.click(screen.getByLabelText('Spares & Fitting'));
 
   const file = new File(['fake-bytes'], 'shoe.jpg', { type: 'image/jpeg' });
   const fileInput = document.querySelector('input[type="file"]');
@@ -62,7 +66,7 @@ describe('ProductForm', () => {
     await userEvent.type(screen.getByLabelText(/price/i), validFields.price);
     await userEvent.type(screen.getByLabelText('Stock quantity'), validFields.stock);
     await userEvent.type(screen.getByLabelText('Description'), validFields.description);
-    await userEvent.click(screen.getByLabelText('Truck'));
+    await userEvent.click(screen.getByLabelText('Spares & Fitting'));
 
     await userEvent.click(screen.getByRole('button', { name: /add product/i }));
 
@@ -86,7 +90,7 @@ describe('ProductForm', () => {
           price: 100,
           stock: 5,
           description: 'desc',
-          category: ['Truck'],
+          category: ['Spares & Fitting'],
           isNewArrival: false,
         }}
         onClose={jest.fn()}
@@ -102,24 +106,33 @@ describe('ProductForm', () => {
     );
   });
 
-  it('sends category as a single comma-joined field, not category[] entries', async () => {
-    apiClient.mockResolvedValue({ data: { data: { jobId: 'job_1' } } });
-    apiClient.get.mockResolvedValue({
-      data: { data: { jobId: 'job_1', state: 'completed', result: { id: 'p1', images: [] } } },
-    });
+  it(
+    'sends category as a single comma-joined field, not category[] entries',
+    async () => {
+      apiClient.mockResolvedValue({ data: { data: { jobId: 'job_1' } } });
+      apiClient.get.mockResolvedValue({
+        data: { data: { jobId: 'job_1', state: 'completed', result: { id: 'p1', images: [] } } },
+      });
 
-    render(<ProductForm onClose={jest.fn()} onSuccess={jest.fn()} />);
-    await fillValidForm();
-    await userEvent.click(screen.getByLabelText('Car'));
+      render(<ProductForm onClose={jest.fn()} onSuccess={jest.fn()} />);
+      await fillValidForm();
+      await userEvent.click(screen.getByLabelText('Safety & Tools'));
 
-    await userEvent.click(screen.getByRole('button', { name: /add product/i }));
+      await userEvent.click(screen.getByRole('button', { name: /add product/i }));
 
-    await waitFor(() => expect(apiClient).toHaveBeenCalled());
-    const call = apiClient.mock.calls[0][0];
-    const formData = call.data;
-    expect(formData.get('category')).toBe('Truck,Car');
-    expect(formData.getAll('category[]')).toHaveLength(0);
-  });
+      await waitFor(() => expect(apiClient).toHaveBeenCalled());
+      const call = apiClient.mock.calls[0][0];
+      const formData = call.data;
+      expect(formData.get('category')).toBe('Spares & Fitting,Safety & Tools');
+      expect(formData.getAll('category[]')).toHaveLength(0);
+    },
+    // fillValidForm's several userEvent.type calls plus this test's own
+    // extra click are the most interaction-heavy sequence in this file —
+    // real (non-fake) timers mean each keystroke costs real wall-clock
+    // time, and that's evidently tight against Jest's default 5000ms on a
+    // slower machine even though it fits comfortably in CI.
+    15000
+  );
 
   it('uses PATCH (never PUT) for updates', async () => {
     apiClient.mockResolvedValue({ data: { data: { jobId: 'job_2' } } });
@@ -136,7 +149,7 @@ describe('ProductForm', () => {
           price: 100,
           stock: 5,
           description: 'desc',
-          category: ['Truck'],
+          category: ['Spares & Fitting'],
           isNewArrival: false,
         }}
         onClose={jest.fn()}
@@ -236,5 +249,137 @@ describe('ProductForm', () => {
 
     await userEvent.type(screen.getByLabelText('Product name'), 'A');
     expect(screen.queryByText('Product name is required')).not.toBeInTheDocument();
+  });
+
+  it('offers the real Advika Auto category taxonomy, not the legacy vehicle-type list', () => {
+    render(<ProductForm onClose={jest.fn()} onSuccess={jest.fn()} />);
+
+    expect(screen.getByLabelText('Lights')).toBeInTheDocument();
+    expect(screen.getByLabelText('Electrical & Wiring')).toBeInTheDocument();
+    expect(screen.getByLabelText('Spares & Fitting')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Truck')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Tempo')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Two Wheeler')).not.toBeInTheDocument();
+  });
+
+  it('requires voltage for a voltage-required category (Lights/Electrical & Wiring)', async () => {
+    render(<ProductForm onClose={jest.fn()} onSuccess={jest.fn()} />);
+
+    await userEvent.type(screen.getByLabelText('Product name'), validFields.name);
+    await userEvent.type(screen.getByLabelText('Brand'), validFields.brand);
+    await userEvent.type(screen.getByLabelText(/^price/i), validFields.price);
+    await userEvent.type(screen.getByLabelText('Stock quantity'), validFields.stock);
+    await userEvent.type(screen.getByLabelText('Description'), validFields.description);
+    await userEvent.click(screen.getByLabelText('Lights'));
+
+    const file = new File(['fake-bytes'], 'light.jpg', { type: 'image/jpeg' });
+    await userEvent.upload(document.querySelector('input[type="file"]'), file);
+
+    await userEvent.click(screen.getByRole('button', { name: /add product/i }));
+
+    expect(
+      await screen.findByText('Voltage is required for Lights/Electrical & Wiring products')
+    ).toBeInTheDocument();
+    expect(apiClient).not.toHaveBeenCalled();
+  });
+
+  it('sends mrp/voltage/isBestSeller/rating when provided, and omits a blank optional numeric field entirely rather than sending an empty string', async () => {
+    apiClient.mockResolvedValue({ data: { data: { jobId: 'job_5' } } });
+    apiClient.get.mockResolvedValue({
+      data: { data: { jobId: 'job_5', state: 'completed', result: { id: 'p1', images: [] } } },
+    });
+
+    render(<ProductForm onClose={jest.fn()} onSuccess={jest.fn()} />);
+    await fillValidForm();
+
+    await userEvent.selectOptions(screen.getByLabelText(/voltage/i), '12V');
+    await userEvent.type(screen.getByLabelText(/mrp/i), '349.99');
+    await userEvent.click(screen.getByLabelText(/best seller/i));
+    await userEvent.type(screen.getByLabelText(/^rating/i), '4.5');
+    // reviewCount deliberately left blank.
+
+    await userEvent.click(screen.getByRole('button', { name: /add product/i }));
+
+    await waitFor(() => expect(apiClient).toHaveBeenCalled());
+    const formData = apiClient.mock.calls[0][0].data;
+    expect(formData.get('voltage')).toBe('12V');
+    expect(formData.get('mrp')).toBe('349.99');
+    expect(formData.get('isBestSeller')).toBe('true');
+    expect(formData.get('rating')).toBe('4.5');
+    // The backend's plain express-validator `.optional()` only skips a
+    // field when the key is entirely absent — an empty string would fail
+    // isInt({ min: 0 }) instead of being treated as "not provided". See
+    // OPTIONAL_NUMERIC_FIELDS in ProductForm.jsx.
+    expect(formData.has('reviewCount')).toBe(false);
+  });
+
+  it(
+    'builds specs/compatibility/variants JSON from the free-text inputs',
+    async () => {
+      apiClient.mockResolvedValue({ data: { data: { jobId: 'job_6' } } });
+      apiClient.get.mockResolvedValue({
+        data: { data: { jobId: 'job_6', state: 'completed', result: { id: 'p1', images: [] } } },
+      });
+
+      render(<ProductForm onClose={jest.fn()} onSuccess={jest.fn()} />);
+      await fillValidForm();
+
+      fireEvent.change(screen.getByLabelText(/specifications/i), {
+        target: { value: 'Wattage: 100W\nIP Rating: IP68' },
+      });
+      await userEvent.type(
+        screen.getByLabelText(/12v vehicles/i),
+        'Tata Ace, Mahindra Bolero Pickup'
+      );
+      await userEvent.type(screen.getByLabelText(/24v vehicles/i), 'Tata Signa 4825');
+
+      await userEvent.click(screen.getByRole('button', { name: /add variant group/i }));
+      await userEvent.type(screen.getByLabelText(/variant group name/i), 'Wattage');
+      await userEvent.type(screen.getByLabelText('Variant option label'), '72W');
+      await userEvent.type(screen.getByLabelText('Variant option price'), '9999');
+      await userEvent.type(screen.getByLabelText('Variant option MRP'), '12999');
+
+      await userEvent.click(screen.getByRole('button', { name: /add product/i }));
+
+      await waitFor(() => expect(apiClient).toHaveBeenCalled());
+      const formData = apiClient.mock.calls[0][0].data;
+      expect(JSON.parse(formData.get('specs'))).toEqual({ Wattage: '100W', 'IP Rating': 'IP68' });
+      expect(JSON.parse(formData.get('compatibility'))).toEqual({
+        '12V': ['Tata Ace', 'Mahindra Bolero Pickup'],
+        '24V': ['Tata Signa 4825'],
+      });
+      expect(JSON.parse(formData.get('variants'))).toEqual([
+        { label: 'Wattage', defaultIndex: 0, options: [{ label: '72W', price: 9999, mrp: 12999 }] },
+      ]);
+    },
+    // Same reasoning as the timeout on the category test above — this is
+    // the single most userEvent.type-heavy test in the file (fillValidForm
+    // plus 6 more typed fields plus a button click), so it's the other
+    // one most exposed to real-machine timing variance against Jest's
+    // default 5000ms.
+    15000
+  );
+
+  it('rejects a non-image file client-side before attempting an upload', async () => {
+    render(<ProductForm onClose={jest.fn()} onSuccess={jest.fn()} />);
+
+    const badFile = new File(['not an image'], 'malware.exe', { type: 'application/octet-stream' });
+    await userEvent.upload(document.querySelector('input[type="file"]'), badFile);
+
+    expect(
+      await screen.findByText('"malware.exe" isn\'t an image file (JPG, PNG, or WEBP).')
+    ).toBeInTheDocument();
+  });
+
+  it('rejects an oversized image file client-side before attempting an upload', async () => {
+    render(<ProductForm onClose={jest.fn()} onSuccess={jest.fn()} />);
+
+    const bigFile = new File(['x'], 'huge.jpg', { type: 'image/jpeg' });
+    Object.defineProperty(bigFile, 'size', { value: 6 * 1024 * 1024 });
+    await userEvent.upload(document.querySelector('input[type="file"]'), bigFile);
+
+    expect(
+      await screen.findByText('"huge.jpg" is too large — please use files under 5MB.')
+    ).toBeInTheDocument();
   });
 });

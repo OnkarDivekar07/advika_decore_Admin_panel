@@ -126,7 +126,7 @@ const NewArrivalsManagement = () => {
             <div key={item.id} className="flex flex-col items-center rounded-lg border bg-gray-50 p-3">
               {brokenImageIds.has(item.id) || !item.images?.[0] ? (
                 <div
-                  className="mb-3 flex h-[150px] w-full flex-col items-center justify-center gap-1 rounded bg-gray-100 text-gray-400"
+                  className="mb-3 flex h-[150px] w-full flex-col items-center justify-center gap-1 rounded bg-gray-100 text-gray-600"
                   role="img"
                   aria-label={`${item.name} — image unavailable`}
                 >
