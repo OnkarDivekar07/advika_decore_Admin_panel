@@ -63,6 +63,41 @@ describe('apiClient', () => {
       expect(handler).toHaveBeenCalledWith('forbidden');
     });
 
+    it('leaves the session alone on a 403 when the request opted out via __skipAuthHandling', async () => {
+      setStoredSession('jwt-token', { id: '1' });
+      const handler = jest.fn();
+      setSessionInvalidatedHandler(handler);
+
+      await expect(
+        responseInterceptor().rejected({
+          config: { url: '/api/orders/order_1', __skipAuthHandling: true },
+          response: { status: 403, data: {} },
+        })
+      ).rejects.toBeDefined();
+
+      // A resource-scoped 403 (orderviewpage.jsx/userviewpage.jsx's own
+      // "Access denied" state) must not log the admin out of an otherwise
+      // perfectly valid session.
+      expect(getStoredToken()).toBe('jwt-token');
+      expect(handler).not.toHaveBeenCalled();
+    });
+
+    it('still clears the session on a 401 even when __skipAuthHandling is set — only 403 is scoped', async () => {
+      setStoredSession('jwt-token', { id: '1' });
+      const handler = jest.fn();
+      setSessionInvalidatedHandler(handler);
+
+      await expect(
+        responseInterceptor().rejected({
+          config: { url: '/api/orders/order_1', __skipAuthHandling: true },
+          response: { status: 401, data: {} },
+        })
+      ).rejects.toBeDefined();
+
+      expect(getStoredToken()).toBeNull();
+      expect(handler).toHaveBeenCalledWith('expired');
+    });
+
     it('does NOT clear session state or fire the handler for a 401 on the login request itself', async () => {
       setStoredSession('jwt-token', { id: '1' });
       const handler = jest.fn();

@@ -224,6 +224,7 @@ const Products = () => {
               setEditingProduct(null);
               setShowForm(true);
             }}
+            data-testid="products-add-new-btn"
           >
             <i className="fas fa-plus" aria-hidden="true"></i>
             Add New Product
@@ -270,6 +271,7 @@ const Products = () => {
               value={filters.search}
               onChange={(e) => setFilter("search", e.target.value)}
               className="w-full rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              data-testid="products-search-input"
             />
           </div>
 
@@ -278,6 +280,7 @@ const Products = () => {
             value={filters.category}
             onChange={(e) => setFilter("category", e.target.value)}
             className="rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            data-testid="products-category-filter"
           >
             <option value="">All categories</option>
             {categoryOptions.map((cat) => (
@@ -294,6 +297,7 @@ const Products = () => {
             value={filters.brand}
             onChange={(e) => setFilter("brand", e.target.value)}
             className="rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            data-testid="products-brand-filter"
           />
 
           <select
@@ -301,6 +305,7 @@ const Products = () => {
             value={filters.inStock}
             onChange={(e) => setFilter("inStock", e.target.value)}
             className="rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            data-testid="products-instock-filter"
           >
             <option value="">Any stock level</option>
             <option value="true">In stock</option>
@@ -312,6 +317,7 @@ const Products = () => {
             value={filters.isNewArrival}
             onChange={(e) => setFilter("isNewArrival", e.target.value)}
             className="rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            data-testid="products-newarrival-filter"
           >
             <option value="">New arrival: any</option>
             <option value="true">New arrivals only</option>
@@ -324,6 +330,7 @@ const Products = () => {
             <button
               type="button"
               onClick={clearFilters}
+              data-testid="products-clear-filters-btn"
               className="rounded text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             >
               Clear filters
@@ -379,6 +386,7 @@ const Products = () => {
                   setShowForm(true);
                 }}
                 aria-label={`Edit ${product.name}`}
+                data-testid={`products-edit-btn-${product.id}`}
               >
                 Edit
               </Button>
@@ -389,6 +397,7 @@ const Products = () => {
                   setDeleteTarget(product);
                 }}
                 aria-label={`Delete ${product.name}`}
+                data-testid={`products-delete-btn-${product.id}`}
               >
                 Delete
               </Button>

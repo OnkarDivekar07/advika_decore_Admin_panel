@@ -66,7 +66,11 @@ describe("OrderViewPage", () => {
 
     renderPage();
 
-    await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith(`/api/orders/${ORDER_ID}`));
+    await waitFor(() =>
+      expect(apiClient.get).toHaveBeenCalledWith(`/api/orders/${ORDER_ID}`, {
+        __skipAuthHandling: true,
+      })
+    );
   });
 
   it("shows a loading state, then the order", async () => {

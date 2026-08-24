@@ -14,7 +14,7 @@ const Pagination = ({ page, totalPages, total, onPageChange }) => {
 
   return (
     <div className="mt-4 flex flex-col items-center justify-between gap-3 border-t border-gray-200 pt-4 sm:flex-row">
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-gray-500" data-testid="pagination-current-page">
         Page {page} of {totalPages} <span className="text-gray-600">({total} total)</span>
       </p>
       <div className="flex gap-2">
@@ -22,6 +22,7 @@ const Pagination = ({ page, totalPages, total, onPageChange }) => {
           variant="secondary"
           disabled={!canPrev}
           onClick={() => onPageChange(page - 1)}
+          data-testid="pagination-prev-btn"
         >
           <i className="fas fa-chevron-left" aria-hidden="true"></i>
           Previous
@@ -30,6 +31,7 @@ const Pagination = ({ page, totalPages, total, onPageChange }) => {
           variant="secondary"
           disabled={!canNext}
           onClick={() => onPageChange(page + 1)}
+          data-testid="pagination-next-btn"
         >
           Next
           <i className="fas fa-chevron-right" aria-hidden="true"></i>

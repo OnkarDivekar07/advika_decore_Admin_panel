@@ -161,6 +161,7 @@ const Users = () => {
               value={filters.search}
               onChange={(e) => setFilter('search', e.target.value)}
               className="w-full rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              data-testid="users-search-input"
             />
           </div>
 
@@ -169,6 +170,7 @@ const Users = () => {
             value={filters.role}
             onChange={(e) => setFilter('role', e.target.value)}
             className="rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            data-testid="users-role-filter"
           >
             <option value="">All roles (default: customer)</option>
             {ROLES.map((role) => (
@@ -184,6 +186,7 @@ const Users = () => {
             <button
               type="button"
               onClick={clearFilters}
+              data-testid="users-clear-filters-btn"
               className="rounded text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             >
               Clear filters

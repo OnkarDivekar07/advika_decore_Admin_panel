@@ -163,6 +163,7 @@ function AnalyticsOverview() {
               max={filters.dateTo || undefined}
               onChange={(e) => setFilters((prev) => ({ ...prev, dateFrom: e.target.value }))}
               className="w-full rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              data-testid="analytics-date-from-input"
             />
             <span className="text-gray-600">–</span>
             <label htmlFor="analytics-date-to" className="sr-only">To date</label>
@@ -174,6 +175,7 @@ function AnalyticsOverview() {
               min={filters.dateFrom || undefined}
               onChange={(e) => setFilters((prev) => ({ ...prev, dateTo: e.target.value }))}
               className="w-full rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              data-testid="analytics-date-to-input"
             />
           </div>
 
@@ -182,6 +184,7 @@ function AnalyticsOverview() {
             value={granularity}
             onChange={(e) => setGranularity(e.target.value)}
             className="rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            data-testid="analytics-granularity-select"
           >
             {GRANULARITIES.map((g) => (
               <option key={g.value} value={g.value}>{g.label}</option>
@@ -189,7 +192,11 @@ function AnalyticsOverview() {
           </select>
 
           {hasFilters && (
-            <Button variant="secondary" onClick={() => setFilters(DEFAULT_FILTERS)}>
+            <Button
+              variant="secondary"
+              onClick={() => setFilters(DEFAULT_FILTERS)}
+              data-testid="analytics-clear-filters-btn"
+            >
               Clear date filter
             </Button>
           )}

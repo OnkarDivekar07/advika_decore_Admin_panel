@@ -94,7 +94,13 @@ const OrderViewPage = () => {
         // GET /api/orders/:id responds with { data: {...} } (see
         // backend/src/modules/order/order.controller.js's getOrderById) —
         // the order object lives at response.data.data, not response.data.
-        const { data } = await apiClient.get(`/api/orders/${id}`);
+        // __skipAuthHandling: a 403 here means "you can't see this
+        // specific order", not "your session is invalid" — let the catch
+        // block below render the dedicated forbidden state instead of
+        // apiClient.js's global interceptor redirecting to /login first.
+        const { data } = await apiClient.get(`/api/orders/${id}`, {
+          __skipAuthHandling: true,
+        });
         setOrder(data.data);
         setErrorKind("");
       } catch (err) {
@@ -233,7 +239,11 @@ const OrderViewPage = () => {
       )}
 
       {!loading && errorKind === "error" && (
-        <ErrorState message={errorMessage} onRetry={() => fetchOrder()} />
+        <ErrorState
+          message={errorMessage}
+          onRetry={() => fetchOrder()}
+          data-testid="order-load-error"
+        />
       )}
 
       {!loading && !errorKind && order && (
@@ -478,6 +488,7 @@ const OrderViewPage = () => {
                     onClick={handleRefreshTracking}
                     disabled={shipmentActionLoading !== ""}
                     aria-busy={shipmentActionLoading === "refresh" || undefined}
+                    data-testid="order-refresh-tracking-btn"
                   >
                     {shipmentActionLoading === "refresh" ? "Refreshing…" : "Refresh Tracking"}
                   </Button>
@@ -488,6 +499,7 @@ const OrderViewPage = () => {
                     onClick={handleCreateShipment}
                     disabled={shipmentActionLoading !== ""}
                     aria-busy={shipmentActionLoading === "create" || undefined}
+                    data-testid="order-create-shipment-btn"
                   >
                     {shipmentActionLoading === "create" ? "Creating…" : "Create Shipment"}
                   </Button>
@@ -497,6 +509,7 @@ const OrderViewPage = () => {
                     variant="dangerOutline"
                     onClick={openCancelDialog}
                     disabled={shipmentActionLoading !== ""}
+                    data-testid="order-cancel-shipment-btn"
                   >
                     Cancel Shipment
                   </Button>
@@ -504,7 +517,13 @@ const OrderViewPage = () => {
               </div>
             </div>
 
-            {shipmentActionError && <ErrorState message={shipmentActionError} className="mb-4" />}
+            {shipmentActionError && (
+              <ErrorState
+                message={shipmentActionError}
+                className="mb-4"
+                data-testid="order-shipment-action-error"
+              />
+            )}
 
             {shipment ? (
               <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
@@ -586,6 +605,7 @@ const OrderViewPage = () => {
           disabled={cancelSubmitting}
           rows={2}
           className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          data-testid="order-cancel-reason-input"
         />
       </ConfirmDialog>
     </>

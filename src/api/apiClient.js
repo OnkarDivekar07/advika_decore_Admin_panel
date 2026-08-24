@@ -83,8 +83,23 @@ apiClient.interceptors.response.use(
     // relying on an existing session.
     const isLoginRequest = error.config?.url?.includes('/api/admin/login');
 
+    // A handful of screens (orderviewpage.jsx, userviewpage.jsx) fetch a
+    // single resource whose 403 means "this specific record is denied to
+    // you" rather than "your session/role is invalid" — and build their
+    // own dedicated in-page "Access denied" state for exactly that case.
+    // Without this opt-out, this interceptor always won the race: it
+    // clears the session and redirects to /login before the page's own
+    // catch block ever gets to render that UI, making it permanently
+    // unreachable. 401 and a malformed/expired-token-shaped 400 are never
+    // skippable this way — those always mean the token itself is no
+    // longer usable for *any* request, not just this one. Mirrors
+    // frontend/src/utils/apiClient.js's identical `__skipAuthHandling`
+    // convention for the customer-facing app.
+    const skips403Handling = status === 403 && error.config?.__skipAuthHandling;
+
     const isAuthFailure =
       !isLoginRequest &&
+      !skips403Handling &&
       (status === 401 || status === 403 || isTokenFailure(status, error.response?.data));
 
     if (isAuthFailure) {

@@ -69,6 +69,7 @@ function Sidebar({ isOpen = false, onClose = () => {} }) {
                 key={to}
                 to={to}
                 aria-current={isActive ? 'page' : undefined}
+                data-testid={`nav-link-${to.replace(/^\//, '')}`}
                 className={`flex items-center space-x-3 rounded-md px-3 py-2 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 ${
                   isActive
                     ? 'bg-blue-100 font-semibold text-gray-900'

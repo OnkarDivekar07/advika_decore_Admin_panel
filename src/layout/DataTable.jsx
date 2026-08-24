@@ -70,6 +70,7 @@ const SortableHeader = ({ column, sort, order, onSortChange }) => {
       <button
         type="button"
         onClick={() => onSortChange(column.sortKey)}
+        data-testid={`sort-header-${column.sortKey}`}
         className="inline-flex items-center gap-1 rounded font-medium uppercase text-gray-500 hover:text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
       >
         {column.header}
@@ -151,7 +152,11 @@ const DataTable = ({
         // tests — never sees a row's content twice.
         <ul className={refreshing ? 'space-y-3 opacity-60 transition-opacity' : 'space-y-3'} aria-busy={refreshing}>
           {rows.map((row) => (
-            <li key={getRowKey(row)} className="rounded-lg border border-gray-200 p-4 shadow-sm">
+            <li
+              key={getRowKey(row)}
+              data-testid={`data-row-${getRowKey(row)}`}
+              className="rounded-lg border border-gray-200 p-4 shadow-sm"
+            >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   {mobileCardTitle && <p className="truncate font-medium text-gray-900">{mobileCardTitle(row)}</p>}
@@ -199,7 +204,7 @@ const DataTable = ({
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
               {rows.map((row) => (
-                <tr key={getRowKey(row)}>
+                <tr key={getRowKey(row)} data-testid={`data-row-${getRowKey(row)}`}>
                   {columns.map((column) => (
                     <td
                       key={column.key}

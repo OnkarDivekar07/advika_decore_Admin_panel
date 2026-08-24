@@ -176,6 +176,7 @@ const Orders = () => {
               value={filters.search}
               onChange={(e) => setFilter("search", e.target.value)}
               className="w-full rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              data-testid="orders-search-input"
             />
           </div>
 
@@ -184,6 +185,7 @@ const Orders = () => {
             value={filters.status}
             onChange={(e) => setFilter("status", e.target.value)}
             className="rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            data-testid="orders-status-filter"
           >
             <option value="">All order statuses</option>
             {ORDER_STATUSES.map((status) => (
@@ -198,6 +200,7 @@ const Orders = () => {
             value={filters.paymentStatus}
             onChange={(e) => setFilter("paymentStatus", e.target.value)}
             className="rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            data-testid="orders-payment-status-filter"
           >
             <option value="">All payment statuses</option>
             {PAYMENT_STATUSES.map((status) => (
@@ -219,6 +222,7 @@ const Orders = () => {
               max={filters.dateTo || undefined}
               onChange={(e) => setFilter("dateFrom", e.target.value)}
               className="w-full rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              data-testid="orders-date-from-input"
             />
             <span className="text-gray-600">–</span>
             <label htmlFor="order-date-to" className="sr-only">
@@ -232,6 +236,7 @@ const Orders = () => {
               min={filters.dateFrom || undefined}
               onChange={(e) => setFilter("dateTo", e.target.value)}
               className="w-full rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              data-testid="orders-date-to-input"
             />
           </div>
         </div>
@@ -241,6 +246,7 @@ const Orders = () => {
             <button
               type="button"
               onClick={clearFilters}
+              data-testid="orders-clear-filters-btn"
               className="rounded text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
             >
               Clear filters

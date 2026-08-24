@@ -69,7 +69,13 @@ const UserViewPage = () => {
       // GET /api/admin/users/:id responds with { data: {...} } (see
       // backend/src/modules/admin/admin.controller.js's getUserById) —
       // the user object lives at response.data.data, not response.data.
-      const { data } = await apiClient.get(`/api/admin/users/${id}`);
+      // __skipAuthHandling: a 403 here means "you can't see this specific
+      // user", not "your session is invalid" — let the catch block below
+      // render the dedicated forbidden state instead of apiClient.js's
+      // global interceptor redirecting to /login first.
+      const { data } = await apiClient.get(`/api/admin/users/${id}`, {
+        __skipAuthHandling: true,
+      });
       setUser(data.data);
       setErrorKind('');
     } catch (err) {

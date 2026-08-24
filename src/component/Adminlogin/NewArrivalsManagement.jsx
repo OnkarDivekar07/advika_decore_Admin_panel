@@ -149,6 +149,7 @@ const NewArrivalsManagement = () => {
                 onClick={() => setRemoveTarget(item)}
                 disabled={Boolean(removeTarget)}
                 aria-label={`Remove ${item.name} from New Arrivals`}
+                data-testid={`new-arrival-remove-btn-${item.id}`}
               >
                 Remove
               </Button>

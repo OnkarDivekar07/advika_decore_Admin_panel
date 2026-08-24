@@ -213,6 +213,7 @@ const Inventory = () => {
               value={thresholdText}
               onChange={(e) => setThresholdText(e.target.value)}
               className="w-20 rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              data-testid="inventory-threshold-input"
             />
           </div>
         </div>
@@ -260,7 +261,12 @@ const Inventory = () => {
                         <Badge tone={item.stock <= 0 ? 'red' : 'yellow'}>{item.stock} left</Badge>
                       </td>
                       <td className="px-4 py-3 text-right text-sm">
-                        <Button variant="primary" onClick={() => setAdjustTarget(item)} aria-label={`Restock ${item.name}`}>
+                        <Button
+                          variant="primary"
+                          onClick={() => setAdjustTarget(item)}
+                          aria-label={`Restock ${item.name}`}
+                          data-testid={`inventory-restock-btn-${item.id}`}
+                        >
                           Restock
                         </Button>
                       </td>
@@ -287,6 +293,7 @@ const Inventory = () => {
               value={filters.search}
               onChange={(e) => setFilter('search', e.target.value)}
               className="w-full rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+              data-testid="inventory-search-input"
             />
           </div>
         </div>
@@ -318,6 +325,7 @@ const Inventory = () => {
               variant="secondary"
               onClick={() => setAdjustTarget(product)}
               aria-label={`Adjust stock for ${product.name}`}
+              data-testid={`inventory-adjust-btn-${product.id}`}
             >
               Adjust Stock
             </Button>

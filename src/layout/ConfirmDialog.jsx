@@ -69,6 +69,7 @@ const ConfirmDialog = ({
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
         aria-describedby="confirm-dialog-message"
+        data-testid="confirm-dialog"
         className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
@@ -87,7 +88,12 @@ const ConfirmDialog = ({
           </p>
         )}
         <div className="mt-6 flex justify-end gap-2">
-          <Button variant="secondary" onClick={onCancel} disabled={isConfirming}>
+          <Button
+            variant="secondary"
+            onClick={onCancel}
+            disabled={isConfirming}
+            data-testid="confirm-dialog-cancel-btn"
+          >
             {cancelLabel}
           </Button>
           <Button
@@ -96,6 +102,7 @@ const ConfirmDialog = ({
             onClick={onConfirm}
             disabled={isConfirming}
             aria-busy={isConfirming || undefined}
+            data-testid="confirm-dialog-confirm-btn"
           >
             {isConfirming ? 'Working…' : confirmLabel}
           </Button>

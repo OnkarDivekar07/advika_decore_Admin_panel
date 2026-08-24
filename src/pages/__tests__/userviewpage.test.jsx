@@ -67,7 +67,11 @@ describe('UserViewPage', () => {
 
     renderPage();
 
-    await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith(`/api/admin/users/${USER_ID}`));
+    await waitFor(() =>
+      expect(apiClient.get).toHaveBeenCalledWith(`/api/admin/users/${USER_ID}`, {
+        __skipAuthHandling: true,
+      })
+    );
   });
 
   it('shows a loading state, then the customer profile', async () => {

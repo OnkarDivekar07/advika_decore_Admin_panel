@@ -122,7 +122,7 @@ const Alerts = () => {
         title="Alerts"
         description="Real-time operational conditions that need attention — nothing here is simulated."
         actions={
-          <Button variant="secondary" onClick={fetchAlerts} disabled={loading}>
+          <Button variant="secondary" onClick={fetchAlerts} disabled={loading} data-testid="alerts-refresh-btn">
             <i className="fas fa-rotate mr-2" aria-hidden="true"></i>
             Refresh
           </Button>
@@ -158,6 +158,7 @@ const Alerts = () => {
                     value={thresholdText}
                     onChange={(e) => setThresholdText(e.target.value)}
                     className="w-20 rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                    data-testid="alerts-threshold-input"
                   />
                 </div>
               }

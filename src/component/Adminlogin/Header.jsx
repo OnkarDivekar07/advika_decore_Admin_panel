@@ -61,6 +61,7 @@ function Header({ onMenuClick = () => {}, sidebarOpen = false }) {
             aria-expanded={sidebarOpen}
             aria-controls="admin-sidebar"
             aria-label={sidebarOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            data-testid="header-menu-toggle-btn"
             className="-ml-1 shrink-0 rounded-md p-2 text-gray-600 hover:bg-gray-100 hover:text-blue-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 lg:hidden"
           >
             <i className={`fas ${sidebarOpen ? 'fa-xmark' : 'fa-bars'} fa-lg`} aria-hidden="true"></i>
@@ -84,11 +85,15 @@ function Header({ onMenuClick = () => {}, sidebarOpen = false }) {
                 ? `Operational alerts, ${alertsCount} needing attention`
                 : 'Operational alerts'
             }
+            data-testid="header-alerts-bell"
             className="relative rounded-md p-2 text-gray-600 hover:text-blue-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           >
             <i className="fas fa-bell fa-lg" aria-hidden="true"></i>
             {hasAlerts && (
-              <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-xs font-semibold text-white">
+              <span
+                className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-xs font-semibold text-white"
+                data-testid="header-alerts-badge"
+              >
                 {alertsCount > 99 ? '99+' : alertsCount}
               </span>
             )}
@@ -105,6 +110,7 @@ function Header({ onMenuClick = () => {}, sidebarOpen = false }) {
           <button
             type="button"
             onClick={logout}
+            data-testid="header-logout-btn"
             className="flex items-center gap-1 rounded-md p-2 text-sm text-red-500 hover:text-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
           >
             <i className="fas fa-sign-out-alt" aria-hidden="true"></i>

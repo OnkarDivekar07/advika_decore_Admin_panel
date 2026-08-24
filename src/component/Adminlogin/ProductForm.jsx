@@ -523,7 +523,12 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
 
   const FieldError = ({ field }) =>
     fieldErrors[field] ? (
-      <p id={`product-${field}-error`} className="mt-1 text-sm text-red-600" role="alert">
+      <p
+        id={`product-${field}-error`}
+        className="mt-1 text-sm text-red-600"
+        role="alert"
+        data-testid={`product-${field}-error`}
+      >
         {fieldErrors[field]}
       </p>
     ) : null;
@@ -545,7 +550,11 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
   );
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 bg-white p-6 rounded shadow max-w-xl mx-auto">
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-4 bg-white p-6 rounded shadow max-w-xl mx-auto"
+      data-testid="product-form"
+    >
       <h2 ref={headingRef} tabIndex={-1} className="text-xl font-semibold mb-4 focus:outline-none">
         {isEditing ? "Edit Product" : "Add New Product"}
       </h2>
@@ -566,6 +575,7 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
           aria-invalid={Boolean(fieldErrors.name)}
           aria-describedby={describedBy("name")}
           className={fieldClass("name")}
+          data-testid="product-name-input"
         />
         <FieldError field="name" />
       </div>
@@ -579,6 +589,7 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
                 type="checkbox"
                 value={cat}
                 checked={formData.category.includes(cat)}
+                data-testid={`product-category-checkbox-${cat}`}
                 onChange={(e) => {
                   const selected = [...formData.category];
                   if (e.target.checked) {
@@ -612,6 +623,7 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
           aria-invalid={Boolean(fieldErrors.brand)}
           aria-describedby={describedBy("brand")}
           className={fieldClass("brand")}
+          data-testid="product-brand-input"
         />
         <FieldError field="brand" />
       </div>
@@ -633,6 +645,7 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
             aria-invalid={Boolean(fieldErrors.price)}
             aria-describedby={describedBy("price")}
             className={fieldClass("price")}
+            data-testid="product-price-input"
           />
           <FieldError field="price" />
         </div>
@@ -653,6 +666,7 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
             aria-invalid={Boolean(fieldErrors.mrp)}
             aria-describedby={describedBy("mrp")}
             className={fieldClass("mrp")}
+            data-testid="product-mrp-input"
           />
           <FieldError field="mrp" />
         </div>
@@ -674,6 +688,7 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
           aria-invalid={Boolean(fieldErrors.stock)}
           aria-describedby={describedBy("stock")}
           className={fieldClass("stock")}
+          data-testid="product-stock-input"
         />
         <FieldError field="stock" />
       </div>
@@ -690,6 +705,7 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
           aria-invalid={Boolean(fieldErrors.voltage)}
           aria-describedby={describedBy("voltage")}
           className={fieldClass("voltage")}
+          data-testid="product-voltage-select"
         >
           <option value="">No voltage (non-electrical part)</option>
           {VALID_VOLTAGES.map((v) => (
@@ -714,6 +730,7 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
           aria-invalid={Boolean(fieldErrors.description)}
           aria-describedby={describedBy("description")}
           className={fieldClass("description")}
+          data-testid="product-description-input"
         ></textarea>
         <FieldError field="description" />
       </div>
@@ -735,6 +752,7 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
           aria-invalid={Boolean(fieldErrors.specs)}
           aria-describedby={describedBy("specs")}
           className={fieldClass("specs")}
+          data-testid="product-specs-input"
         ></textarea>
         <FieldError field="specs" />
       </div>
@@ -760,6 +778,7 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
               }}
               rows={2}
               className={fieldClass("compatibility")}
+              data-testid="product-compat-12v-input"
             ></textarea>
           </div>
           <div>
@@ -778,6 +797,7 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
               }}
               rows={2}
               className={fieldClass("compatibility")}
+              data-testid="product-compat-24v-input"
             ></textarea>
           </div>
         </div>
@@ -802,12 +822,14 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
                   value={group.label}
                   onChange={(e) => updateVariantGroupLabel(group.id, e.target.value)}
                   className="w-full p-2 border rounded border-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                  data-testid={`variant-group-label-input-${group.id}`}
                 />
                 <Button
                   type="button"
                   variant="dangerOutline"
                   onClick={() => removeVariantGroup(group.id)}
                   aria-label={`Remove variant group${group.label ? ` ${group.label}` : ""}`}
+                  data-testid={`variant-group-remove-btn-${group.id}`}
                 >
                   Remove
                 </Button>
@@ -824,6 +846,7 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
                       }
                       aria-label="Variant option label"
                       className="flex-1 p-2 border rounded border-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                      data-testid={`variant-option-label-input-${option.id}`}
                     />
                     <input
                       type="number"
@@ -836,6 +859,7 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
                       min="0.01"
                       aria-label="Variant option price"
                       className="w-28 p-2 border rounded border-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                      data-testid={`variant-option-price-input-${option.id}`}
                     />
                     <input
                       type="number"
@@ -848,6 +872,7 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
                       min="0.01"
                       aria-label="Variant option MRP"
                       className="w-28 p-2 border rounded border-gray-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                      data-testid={`variant-option-mrp-input-${option.id}`}
                     />
                     <Button
                       type="button"
@@ -855,18 +880,29 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
                       onClick={() => removeVariantOption(group.id, option.id)}
                       aria-label="Remove this option"
                       disabled={group.options.length === 1}
+                      data-testid={`variant-option-remove-btn-${option.id}`}
                     >
                       ✕
                     </Button>
                   </div>
                 ))}
-                <Button type="button" variant="ghost" onClick={() => addVariantOption(group.id)}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => addVariantOption(group.id)}
+                  data-testid={`variant-add-option-btn-${group.id}`}
+                >
                   + Add option
                 </Button>
               </div>
             </div>
           ))}
-          <Button type="button" variant="secondary" onClick={addVariantGroup}>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={addVariantGroup}
+            data-testid="variant-add-group-btn"
+          >
             + Add variant group
           </Button>
         </div>
@@ -890,6 +926,7 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
             aria-invalid={Boolean(fieldErrors.rating)}
             aria-describedby={describedBy("rating")}
             className={fieldClass("rating")}
+            data-testid="product-rating-input"
           />
           <FieldError field="rating" />
         </div>
@@ -908,6 +945,7 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
             aria-invalid={Boolean(fieldErrors.reviewCount)}
             aria-describedby={describedBy("reviewCount")}
             className={fieldClass("reviewCount")}
+            data-testid="product-reviewCount-input"
           />
           <FieldError field="reviewCount" />
         </div>
@@ -920,6 +958,7 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
           checked={formData.isNewArrival}
           onChange={handleChange}
           className="mr-2"
+          data-testid="product-isNewArrival-checkbox"
         />
         New arrival?
       </label>
@@ -931,6 +970,7 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
           checked={formData.isBestSeller}
           onChange={handleChange}
           className="mr-2"
+          data-testid="product-isBestSeller-checkbox"
         />
         Best seller?
       </label>
@@ -948,6 +988,7 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
           aria-invalid={Boolean(fieldErrors.images)}
           aria-describedby={describedBy("images")}
           className={fieldClass("images")}
+          data-testid="product-images-input"
         />
         {isEditing && (
           <p className="mt-1 text-xs text-gray-500">
@@ -965,6 +1006,7 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
           aria-valuenow={uploadProgress}
           aria-valuemin={0}
           aria-valuemax={100}
+          data-testid="product-upload-progress"
         >
           <div
             className="bg-blue-600 h-2 rounded transition-all"
@@ -974,11 +1016,23 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
       )}
 
       <div className="flex gap-4 mt-4">
-        <Button type="submit" variant="primary" disabled={isBusy} aria-busy={isBusy || undefined}>
+        <Button
+          type="submit"
+          variant="primary"
+          disabled={isBusy}
+          aria-busy={isBusy || undefined}
+          data-testid="product-form-submit-btn"
+        >
           {submitLabel()}
         </Button>
 
-        <Button type="button" variant="secondary" onClick={onClose} disabled={isBusy}>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={onClose}
+          disabled={isBusy}
+          data-testid="product-form-cancel-btn"
+        >
           Cancel
         </Button>
       </div>

@@ -271,7 +271,11 @@ const BannerManagement = () => {
       {error && <ErrorState message={error} onRetry={fetchBanners} className="mb-4" />}
 
       {/* Upload Form */}
-      <form onSubmit={handleUpload} className="mb-6 space-y-3 rounded-md border border-gray-200 p-4">
+      <form
+        onSubmit={handleUpload}
+        className="mb-6 space-y-3 rounded-md border border-gray-200 p-4"
+        data-testid="banner-upload-form"
+      >
         <div>
           <label htmlFor="banner-image-input" className="mb-1 block text-sm font-medium text-gray-700">
             Banner image
@@ -284,10 +288,11 @@ const BannerManagement = () => {
             onChange={handleFileChange}
             disabled={uploading}
             aria-invalid={Boolean(fileError)}
+            data-testid="banner-image-input"
             className="block w-full text-sm text-gray-500 file:mr-4 file:rounded file:border-0 file:bg-blue-600 file:px-4 file:py-2 file:text-white hover:file:bg-blue-700 disabled:opacity-60"
           />
           {fileError && (
-            <p className="mt-1 text-sm text-red-600" role="alert">
+            <p className="mt-1 text-sm text-red-600" role="alert" data-testid="banner-image-error">
               {fileError}
             </p>
           )}
@@ -308,12 +313,13 @@ const BannerManagement = () => {
             }}
             disabled={uploading}
             aria-invalid={Boolean(linkError)}
+            data-testid="banner-link-input"
             className={`w-full rounded-md border p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-60 ${
               linkError ? 'border-red-400' : 'border-gray-300'
             }`}
           />
           {linkError && (
-            <p className="mt-1 text-sm text-red-600" role="alert">
+            <p className="mt-1 text-sm text-red-600" role="alert" data-testid="banner-link-error">
               {linkError}
             </p>
           )}
@@ -327,7 +333,7 @@ const BannerManagement = () => {
         )}
 
         {uploadError && (
-          <p className="text-sm text-red-600" role="alert">
+          <p className="text-sm text-red-600" role="alert" data-testid="banner-upload-error">
             {uploadError}
           </p>
         )}
@@ -340,6 +346,7 @@ const BannerManagement = () => {
             aria-valuenow={uploadProgress}
             aria-valuemin={0}
             aria-valuemax={100}
+            data-testid="banner-upload-progress"
           >
             <div
               className="h-2 rounded bg-blue-600 transition-all"
@@ -349,11 +356,22 @@ const BannerManagement = () => {
         )}
 
         <div className="flex gap-3">
-          <Button type="submit" variant="primary" disabled={uploading || !selectedFile} aria-busy={uploading || undefined}>
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={uploading || !selectedFile}
+            aria-busy={uploading || undefined}
+            data-testid="banner-upload-btn"
+          >
             {uploading ? `Uploading… ${uploadProgress}%` : 'Upload Banner'}
           </Button>
           {(selectedFile || linkUrl) && !uploading && (
-            <Button type="button" variant="secondary" onClick={resetUploadForm}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={resetUploadForm}
+              data-testid="banner-clear-btn"
+            >
               Clear
             </Button>
           )}
@@ -404,6 +422,7 @@ const BannerManagement = () => {
                 onClick={() => setDeleteTarget(b)}
                 disabled={Boolean(deleteTarget)}
                 aria-label={`Delete banner ${index + 1}${b.linkUrl ? ` (links to ${b.linkUrl})` : ''}`}
+                data-testid={`banner-delete-btn-${b.id}`}
               >
                 Delete
               </Button>

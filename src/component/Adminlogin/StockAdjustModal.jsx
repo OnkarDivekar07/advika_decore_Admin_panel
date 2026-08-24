@@ -197,6 +197,7 @@ const StockAdjustModal = ({ product, onClose, onSuccess }) => {
         aria-modal="true"
         aria-labelledby="stock-adjust-title"
         tabIndex={-1}
+        data-testid="stock-adjust-modal"
         className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl focus:outline-none"
         onClick={(e) => e.stopPropagation()}
       >
@@ -246,6 +247,7 @@ const StockAdjustModal = ({ product, onClose, onSuccess }) => {
                   }}
                   disabled={submitting}
                   className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                  data-testid="stock-action-select"
                 >
                   {ACTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
@@ -273,9 +275,10 @@ const StockAdjustModal = ({ product, onClose, onSuccess }) => {
                   }}
                   disabled={submitting}
                   className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                  data-testid="stock-quantity-input"
                 />
                 {fieldError && (
-                  <p role="alert" className="mt-1 text-sm text-red-600">
+                  <p role="alert" className="mt-1 text-sm text-red-600" data-testid="stock-quantity-field-error">
                     {fieldError}
                   </p>
                 )}
@@ -292,16 +295,28 @@ const StockAdjustModal = ({ product, onClose, onSuccess }) => {
               )}
 
               {submitError && (
-                <p role="alert" className="text-sm text-red-600">
+                <p role="alert" className="text-sm text-red-600" data-testid="stock-adjust-error">
                   {submitError}
                 </p>
               )}
 
               <div className="mt-2 flex justify-end gap-2">
-                <Button type="button" variant="secondary" onClick={onClose} disabled={submitting}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={onClose}
+                  disabled={submitting}
+                  data-testid="stock-adjust-cancel-btn"
+                >
                   Cancel
                 </Button>
-                <Button type="submit" variant="primary" disabled={submitting} aria-busy={submitting || undefined}>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  disabled={submitting}
+                  aria-busy={submitting || undefined}
+                  data-testid="stock-adjust-submit-btn"
+                >
                   {submitting ? 'Applying…' : 'Apply'}
                 </Button>
               </div>

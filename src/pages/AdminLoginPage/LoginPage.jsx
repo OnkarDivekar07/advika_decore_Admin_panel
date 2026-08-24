@@ -111,18 +111,22 @@ const LoginPage = () => {
         </h1>
 
         {notice && !error && (
-          <p className="mb-4 text-amber-600 text-center font-medium" role="status">
+          <p
+            className="mb-4 text-amber-600 text-center font-medium"
+            role="status"
+            data-testid="login-session-notice"
+          >
             {notice}
           </p>
         )}
 
         {error && (
-          <p className="mb-4 text-red-600 text-center font-medium" role="alert">
+          <p className="mb-4 text-red-600 text-center font-medium" role="alert" data-testid="login-error">
             {error}
           </p>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-8" noValidate>
+        <form onSubmit={handleSubmit} className="space-y-8" noValidate data-testid="login-form">
           <InputField
             label="Email address"
             type="email"
@@ -131,6 +135,7 @@ const LoginPage = () => {
             iconClass="fas fa-envelope"
             value={formData.email}
             onChange={handleChange}
+            data-testid="login-email-input"
           />
           <InputField
             label="Password"
@@ -140,8 +145,13 @@ const LoginPage = () => {
             iconClass="fas fa-lock"
             value={formData.password}
             onChange={handleChange}
+            data-testid="login-password-input"
           />
-          <SubmitButton text={loading ? 'Logging in...' : 'Login'} disabled={loading} />
+          <SubmitButton
+            text={loading ? 'Logging in...' : 'Login'}
+            disabled={loading}
+            data-testid="login-submit-btn"
+          />
         </form>
 
         <p className="mt-6 text-center text-sm text-gray-500">
