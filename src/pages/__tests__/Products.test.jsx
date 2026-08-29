@@ -33,7 +33,7 @@ const buildProduct = (overrides = {}) => ({
   id: 'prod_1',
   name: 'Heavy Duty Mud Flap',
   brand: 'Advika',
-  category: ['Spares & Fitting'],
+  category: ['Useful Items'],
   price: 299.99,
   stock: 15,
   images: [],
@@ -76,7 +76,7 @@ describe('Products page', () => {
 
     await screen.findByText('Heavy Duty Mud Flap');
     expect(screen.getByText('Advika')).toBeInTheDocument();
-    expect(screen.getByRole('cell', { name: 'Spares & Fitting' })).toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: 'Useful Items' })).toBeInTheDocument();
     expect(screen.getByText('₹299.99')).toBeInTheDocument();
     expect(screen.getByText(/3 · Low Stock/)).toBeInTheDocument();
     expect(screen.getByRole('cell', { name: 'New Arrival' })).toBeInTheDocument();
@@ -127,12 +127,12 @@ describe('Products page', () => {
     apiClient.get.mockClear();
     apiClient.get.mockResolvedValue(mockListResponse([]));
 
-    await userEvent.selectOptions(screen.getByLabelText(/filter by category/i), 'Spares & Fitting');
+    await userEvent.selectOptions(screen.getByLabelText(/filter by category/i), 'Useful Items');
 
     await waitFor(() =>
       expect(apiClient.get).toHaveBeenCalledWith(
         '/api/products',
-        expect.objectContaining({ params: expect.objectContaining({ category: 'Spares & Fitting', page: 1 }) })
+        expect.objectContaining({ params: expect.objectContaining({ category: 'Useful Items', page: 1 }) })
       )
     );
 

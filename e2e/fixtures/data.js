@@ -21,7 +21,7 @@ const PRODUCT_1 = {
 const PRODUCT_LOW_STOCK = {
   id: '507f1f77bcf86cd799439013',
   name: 'Advika 12V Wiring Harness',
-  category: ['Electrical & Wiring'],
+  category: ['Fan, Charger & Horn'],
   brand: 'Advika',
   price: 899,
   stock: 2,

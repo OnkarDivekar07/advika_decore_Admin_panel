@@ -189,7 +189,7 @@ test.describe.serial('Real admin journey (real backend + real DB + real S3)', ()
     await expect(page.getByTestId('product-form')).toBeVisible();
 
     await page.getByTestId('product-name-input').fill(productName);
-    await page.getByTestId('product-category-checkbox-Safety & Tools').check();
+    await page.getByTestId('product-category-checkbox-Useful Items').check();
     await page.getByTestId('product-brand-input').fill('Advika E2E');
     await page.getByTestId('product-price-input').fill('777');
     await page.getByTestId('product-stock-input').fill('25');

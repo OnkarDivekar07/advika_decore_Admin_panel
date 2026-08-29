@@ -7,6 +7,7 @@ import {
   PRODUCT_CATEGORIES,
   VOLTAGE_REQUIRED_CATEGORIES,
   VALID_VOLTAGES,
+  VALID_UNITS,
 } from "../../utils/productCategories";
 
 const categoryOptions = PRODUCT_CATEGORIES;
@@ -182,6 +183,10 @@ const validateClientSide = (formData, images, isEditing) => {
     errors.voltage = `Voltage must be one of ${VALID_VOLTAGES.join(", ")}`;
   }
 
+  if (formData.unit && !VALID_UNITS.includes(formData.unit)) {
+    errors.unit = `Unit must be one of ${VALID_UNITS.join(", ")}`;
+  }
+
   if (formData.mrp !== "") {
     const mrp = Number(formData.mrp);
     if (Number.isNaN(mrp) || mrp <= 0) {
@@ -219,6 +224,7 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
     isNewArrival: false,
     mrp: "",
     voltage: "",
+    unit: "",
     isBestSeller: false,
     rating: "",
     reviewCount: "",
@@ -280,6 +286,7 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
         isNewArrival: initialData.isNewArrival || false,
         mrp: initialData.mrp ?? "",
         voltage: initialData.voltage || "",
+        unit: initialData.unit || "",
         isBestSeller: initialData.isBestSeller || false,
         rating: initialData.rating ?? "",
         reviewCount: initialData.reviewCount ?? "",
@@ -415,7 +422,7 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
           form.append("category", val.join(","));
           return;
         }
-        if ((OPTIONAL_NUMERIC_FIELDS.has(key) || key === "voltage") && val === "") {
+        if ((OPTIONAL_NUMERIC_FIELDS.has(key) || key === "voltage" || key === "unit") && val === "") {
           // Omit entirely — see OPTIONAL_NUMERIC_FIELDS' comment above.
           return;
         }
@@ -715,6 +722,28 @@ const ProductForm = ({ initialData = null, onClose, onSuccess }) => {
           ))}
         </select>
         <FieldError field="voltage" />
+      </div>
+
+      <div>
+        <label htmlFor="product-unit" className="mb-1 block text-sm font-medium text-gray-700">
+          Selling unit (optional)
+        </label>
+        <select
+          id="product-unit"
+          name="unit"
+          value={formData.unit}
+          onChange={handleChange}
+          aria-invalid={Boolean(fieldErrors.unit)}
+          aria-describedby={describedBy("unit")}
+          className={fieldClass("unit")}
+          data-testid="product-unit-select"
+        >
+          <option value="">No unit (no "/unit" suffix shown)</option>
+          <option value="pc">Piece (pc)</option>
+          <option value="dozen">Dozen (12 pc)</option>
+          <option value="jodi">Jodi / pair (2 pc)</option>
+        </select>
+        <FieldError field="unit" />
       </div>
 
       <div>

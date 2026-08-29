@@ -30,11 +30,11 @@ const fillValidForm = async () => {
   await userEvent.type(screen.getByLabelText(/^price/i), validFields.price);
   await userEvent.type(screen.getByLabelText('Stock quantity'), validFields.stock);
   await userEvent.type(screen.getByLabelText('Description'), validFields.description);
-  // A non-voltage-required category (Lights/Electrical & Wiring are the
-  // two the backend's VOLTAGE_REQUIRED_CATEGORIES cover — see
+  // A non-voltage-required category (Lights is the only one the
+  // backend's VOLTAGE_REQUIRED_CATEGORIES covers — see
   // src/utils/productCategories.js), so this base "fill in everything
   // valid" helper never needs to also pick a voltage.
-  await userEvent.click(screen.getByLabelText('Spares & Fitting'));
+  await userEvent.click(screen.getByLabelText('Useful Items'));
 
   const file = new File(['fake-bytes'], 'shoe.jpg', { type: 'image/jpeg' });
   const fileInput = document.querySelector('input[type="file"]');
@@ -66,7 +66,7 @@ describe('ProductForm', () => {
     await userEvent.type(screen.getByLabelText(/price/i), validFields.price);
     await userEvent.type(screen.getByLabelText('Stock quantity'), validFields.stock);
     await userEvent.type(screen.getByLabelText('Description'), validFields.description);
-    await userEvent.click(screen.getByLabelText('Spares & Fitting'));
+    await userEvent.click(screen.getByLabelText('Useful Items'));
 
     await userEvent.click(screen.getByRole('button', { name: /add product/i }));
 
@@ -90,7 +90,7 @@ describe('ProductForm', () => {
           price: 100,
           stock: 5,
           description: 'desc',
-          category: ['Spares & Fitting'],
+          category: ['Useful Items'],
           isNewArrival: false,
         }}
         onClose={jest.fn()}
@@ -116,14 +116,14 @@ describe('ProductForm', () => {
 
       render(<ProductForm onClose={jest.fn()} onSuccess={jest.fn()} />);
       await fillValidForm();
-      await userEvent.click(screen.getByLabelText('Safety & Tools'));
+      await userEvent.click(screen.getByLabelText('Tassels & Hangings'));
 
       await userEvent.click(screen.getByRole('button', { name: /add product/i }));
 
       await waitFor(() => expect(apiClient).toHaveBeenCalled());
       const call = apiClient.mock.calls[0][0];
       const formData = call.data;
-      expect(formData.get('category')).toBe('Spares & Fitting,Safety & Tools');
+      expect(formData.get('category')).toBe('Useful Items,Tassels & Hangings');
       expect(formData.getAll('category[]')).toHaveLength(0);
     },
     // fillValidForm's several userEvent.type calls plus this test's own
@@ -149,7 +149,7 @@ describe('ProductForm', () => {
           price: 100,
           stock: 5,
           description: 'desc',
-          category: ['Spares & Fitting'],
+          category: ['Useful Items'],
           isNewArrival: false,
         }}
         onClose={jest.fn()}
@@ -255,14 +255,14 @@ describe('ProductForm', () => {
     render(<ProductForm onClose={jest.fn()} onSuccess={jest.fn()} />);
 
     expect(screen.getByLabelText('Lights')).toBeInTheDocument();
-    expect(screen.getByLabelText('Electrical & Wiring')).toBeInTheDocument();
-    expect(screen.getByLabelText('Spares & Fitting')).toBeInTheDocument();
+    expect(screen.getByLabelText('Steering Cover')).toBeInTheDocument();
+    expect(screen.getByLabelText('Useful Items')).toBeInTheDocument();
     expect(screen.queryByLabelText('Truck')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Tempo')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Two Wheeler')).not.toBeInTheDocument();
   });
 
-  it('requires voltage for a voltage-required category (Lights/Electrical & Wiring)', async () => {
+  it('requires voltage for the voltage-required category (Lights)', async () => {
     render(<ProductForm onClose={jest.fn()} onSuccess={jest.fn()} />);
 
     await userEvent.type(screen.getByLabelText('Product name'), validFields.name);
@@ -278,7 +278,7 @@ describe('ProductForm', () => {
     await userEvent.click(screen.getByRole('button', { name: /add product/i }));
 
     expect(
-      await screen.findByText('Voltage is required for Lights/Electrical & Wiring products')
+      await screen.findByText('Voltage is required for Lights products')
     ).toBeInTheDocument();
     expect(apiClient).not.toHaveBeenCalled();
   });

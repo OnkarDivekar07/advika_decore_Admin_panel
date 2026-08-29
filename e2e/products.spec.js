@@ -105,7 +105,7 @@ test.describe('Products', () => {
     await expect(page.getByTestId('product-form')).toBeVisible();
 
     await page.getByTestId('product-name-input').fill('Heavy Duty Tarpaulin Cover');
-    await page.getByTestId('product-category-checkbox-Safety & Tools').check();
+    await page.getByTestId('product-category-checkbox-Useful Items').check();
     await page.getByTestId('product-brand-input').fill('Advika');
     await page.getByTestId('product-price-input').fill('999');
     await page.getByTestId('product-stock-input').fill('50');
