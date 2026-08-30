@@ -6,24 +6,25 @@
 // Nothing here uses page.route()/route.fulfill() — see
 // support/realApi.js's header comment.
 //
-// Product image upload is REAL too: it goes to the real advikaauto S3
-// bucket (there is no S3 sandbox in the app). The uploaded file is given
-// the distinctive name "e2e-fixture-<runId>.png" precisely so the
-// resulting S3 key can be safely identified and deleted afterward — see
-// e2e-real/support/s3Cleanup.js and its own afterAll hook below. No
+// Product image upload is REAL too: it goes to the real Cloudflare R2
+// bucket the app was migrated to (there is no R2 sandbox in the app; see
+// backend 2.0/src/services/external/AWSUploads.js). The uploaded file is
+// given the distinctive name "e2e-fixture-<runId>.png" precisely so the
+// resulting object key can be safely identified and deleted afterward —
+// see e2e-real/support/s3Cleanup.js and its own afterAll hook below. No
 // application code was changed to make this possible.
 //
-// ENVIRONMENT NOTE (see final report): the real AWS credentials present in
-// backend 2.0/.env are rejected by AWS itself (InvalidAccessKeyId) in this
-// environment — not an application bug, and not something a test can work
-// around. The S3-upload test below is kept as its own isolated test that
-// genuinely exercises (and genuinely fails against) the real upload path,
-// so this is documented by a real failing test rather than silently
-// skipped. Every OTHER test in this file creates its own product via the
-// real POST /api/products WITHOUT an image (the real backend's own
-// validation layer doesn't require one at create time — only the admin
-// UI's ProductForm.jsx enforces that client-side) so they aren't blocked
-// by this one environment limitation.
+// HISTORY: this test used to be a documented, permanently-failing test —
+// the real AWS S3 credentials in backend 2.0/.env were rejected by AWS
+// (InvalidAccessKeyId), which also meant the real backend's hard
+// requirement of >=1 image blocked creating any new product at all. Fixed
+// by migrating storage to Cloudflare R2 (working credentials + a real
+// public custom domain) — this test now genuinely passes end-to-end
+// against the real stack. Every OTHER test in this file still creates its
+// own product via the real POST /api/products WITHOUT an image (the real
+// backend's own validation layer doesn't require one at create time —
+// only the admin UI's ProductForm.jsx enforces that client-side), so
+// they're independent of this one either way.
 const { test, expect } = require('@playwright/test');
 const fs = require('fs');
 const path = require('path');
@@ -101,7 +102,7 @@ test.describe.serial('Real admin journey (real backend + real DB + real S3)', ()
     // Prisma, bypassing the image pipeline entirely) — still 100% real
     // inventory-adjustment coverage, just not paired with a fresh
     // creation.
-    const seeded = await realApi.get('/api/products?search=Universal+Mounting+Bracket');
+    const seeded = await realApi.get('/api/products?search=Cushioned+Seat+Cover');
     productId = seeded.body.data[0].id;
     productName = seeded.body.data[0].name;
     const stockBefore = seeded.body.data[0].stock;
@@ -137,7 +138,7 @@ test.describe.serial('Real admin journey (real backend + real DB + real S3)', ()
       { name: 'E2E Admin-Journey Customer', phone: '9876500094', pincode: '411001', city: 'Pune', houseArea: '1 Ship Lane', area: 'Camp', state: 'Maharashtra' },
       customerToken
     );
-    const products = await realApi.get('/api/products?search=Reflective+Safety');
+    const products = await realApi.get('/api/products?search=Chrome+Air+Horn');
     const buyProductId = products.body.data[0].id;
     await realApi.addToCart(buyProductId, 1, customerToken);
     const draft = await realApi.createDraftOrder(address.body.data.id, customerToken);
@@ -175,11 +176,10 @@ test.describe.serial('Real admin journey (real backend + real DB + real S3)', ()
     await expect(page.getByText('Shipped', { exact: true }).first()).toBeVisible({ timeout: 10000 });
   });
 
-  // Runs LAST deliberately: describe.serial skips every test after the
-  // first failure, and this one is expected to fail in this environment
-  // (see the file header's ENVIRONMENT NOTE) — every other, unrelated real
-  // admin-journey test above must still get to run.
-  test('creates a real product with a real S3-uploaded image', async () => {
+  // Runs last: still standalone (doesn't depend on productId/orderId set
+  // by the tests above), kept in this position now only because it's the
+  // most expensive real step (a real async image-processing job).
+  test('creates a real product with a real R2-uploaded image', async () => {
     const page = adminPage;
     productName = uniqueProductName('AdminCreated');
     const imageName = e2eFixtureImageName();
@@ -236,6 +236,12 @@ test.describe.serial('Real admin journey (real backend + real DB + real S3)', ()
     expect(productCheck.status).toBe(200);
     expect(productCheck.body.data.name).toBe(productName);
     expect(productCheck.body.data.price).toBe(777);
-    expect(productCheck.body.data.images[0]).toContain('s3');
+    // Post-R2-migration: real uploads now come back as
+    // https://<R2_PUBLIC_URL>/product-images/..., not a
+    // *.s3.*.amazonaws.com URL — assert the shape rather than a specific
+    // domain so this doesn't need its own env load (R2_PUBLIC_URL isn't
+    // in this process's env; see s3Cleanup.js's own note on that).
+    expect(productCheck.body.data.images[0]).toContain('/product-images/');
+    expect(productCheck.body.data.images[0]).not.toContain('amazonaws.com');
   });
 });
