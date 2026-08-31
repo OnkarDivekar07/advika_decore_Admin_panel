@@ -143,7 +143,7 @@ describe('Alerts page', () => {
                 orderId: '507f1f77bcf86cd799439101',
                 trackingId: 'TRK123',
                 status: 'DELIVERY_FAILED',
-                courierPartner: 'Ekart',
+                courierPartner: 'Delhivery',
                 lastLocation: 'Pune Hub',
                 updatedAt: '2026-08-01T00:00:00.000Z',
                 total: 800,
@@ -159,7 +159,7 @@ describe('Alerts page', () => {
 
     expect(await screen.findByText('Priya S')).toBeInTheDocument();
     expect(screen.getByText('DELIVERY_FAILED')).toBeInTheDocument();
-    expect(screen.getByText(/Ekart · TRK123/)).toBeInTheDocument();
+    expect(screen.getByText(/Delhivery · TRK123/)).toBeInTheDocument();
   });
 
   it('shows an empty state for a section with no items, instead of fake rows', async () => {

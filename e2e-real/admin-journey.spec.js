@@ -155,7 +155,7 @@ test.describe.serial('Real admin journey (real backend + real DB + real S3)', ()
     await expect(page.getByTestId('order-create-shipment-btn')).toBeVisible({ timeout: 10000 });
 
     // Real POST /api/shipping/:orderId/create -> real shipping.service.js
-    // -> real HTTP call to the mock Ekart server -> real Prisma Shipment
+    // -> real HTTP call to the mock Delhivery server -> real Prisma Shipment
     // row + real Order.status update to 'shipped'.
     const shipRes = page.waitForResponse((res) => res.url().includes(`/api/shipping/${orderId}/create`));
     await page.getByTestId('order-create-shipment-btn').click();

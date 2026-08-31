@@ -190,7 +190,7 @@ describe("OrderViewPage", () => {
         okResponse(
           buildOrder({
             status: "shipped",
-            shipment: { status: "CREATED", courierPartner: "Ekart", paymentMode: "PREPAID" },
+            shipment: { status: "CREATED", courierPartner: "Delhivery", paymentMode: "PREPAID" },
           })
         )
       );
@@ -212,7 +212,7 @@ describe("OrderViewPage", () => {
       okResponse(
         buildOrder({
           status: "shipped",
-          shipment: { status: "IN_TRANSIT", courierPartner: "Ekart", paymentMode: "PREPAID" },
+          shipment: { status: "IN_TRANSIT", courierPartner: "Delhivery", paymentMode: "PREPAID" },
         })
       )
     );
@@ -229,7 +229,7 @@ describe("OrderViewPage", () => {
       okResponse(
         buildOrder({
           status: "delivered",
-          shipment: { status: "DELIVERED", courierPartner: "Ekart", paymentMode: "PREPAID" },
+          shipment: { status: "DELIVERED", courierPartner: "Delhivery", paymentMode: "PREPAID" },
         })
       )
     );
@@ -246,7 +246,7 @@ describe("OrderViewPage", () => {
         okResponse(
           buildOrder({
             status: "shipped",
-            shipment: { status: "CREATED", courierPartner: "Ekart", paymentMode: "PREPAID" },
+            shipment: { status: "CREATED", courierPartner: "Delhivery", paymentMode: "PREPAID" },
           })
         )
       )
@@ -277,7 +277,7 @@ describe("OrderViewPage", () => {
   it("shows a clear error and does not fabricate a shipped state when shipment creation fails (e.g. carrier outage)", async () => {
     apiClient.get.mockResolvedValue(okResponse(buildOrder({ status: "confirmed", shipment: null })));
     apiClient.post.mockRejectedValue({
-      response: { status: 503, data: { message: "Could not create shipment with Ekart right now. Please try again in a moment." } },
+      response: { status: 503, data: { message: "Could not create shipment with Delhivery right now. Please try again in a moment." } },
     });
 
     renderPage();
@@ -285,7 +285,7 @@ describe("OrderViewPage", () => {
     await userEvent.click(await screen.findByRole("button", { name: /create shipment/i }));
 
     expect(
-      await screen.findByText(/could not create shipment with ekart right now/i)
+      await screen.findByText(/could not create shipment with delhivery right now/i)
     ).toBeInTheDocument();
     // A failed create must never be treated as success — the page should not
     // have refetched into a "shipped"/created state off the back of an error,
@@ -299,7 +299,7 @@ describe("OrderViewPage", () => {
     const orderWithShipment = okResponse(
       buildOrder({
         status: "shipped",
-        shipment: { status: "IN_TRANSIT", courierPartner: "Ekart", paymentMode: "PREPAID", lastLocation: "Mumbai Hub" },
+        shipment: { status: "IN_TRANSIT", courierPartner: "Delhivery", paymentMode: "PREPAID", lastLocation: "Mumbai Hub" },
       })
     );
     // Initial load succeeds; the explicit "Refresh Tracking" GET (routed
@@ -327,7 +327,7 @@ describe("OrderViewPage", () => {
       okResponse(
         buildOrder({
           status: "shipped",
-          shipment: { status: "CREATED", courierPartner: "Ekart", paymentMode: "PREPAID" },
+          shipment: { status: "CREATED", courierPartner: "Delhivery", paymentMode: "PREPAID" },
         })
       )
     );
@@ -353,7 +353,7 @@ describe("OrderViewPage", () => {
       okResponse(
         buildOrder({
           status: "shipped",
-          shipment: { status: "OUT_FOR_DELIVERY", courierPartner: "Ekart", paymentMode: "PREPAID" },
+          shipment: { status: "OUT_FOR_DELIVERY", courierPartner: "Delhivery", paymentMode: "PREPAID" },
         })
       )
     );
