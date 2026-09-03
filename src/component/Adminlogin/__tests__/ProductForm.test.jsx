@@ -16,6 +16,19 @@ jest.mock('../../../api/apiClient', () => {
 // eslint-disable-next-line import/first
 import apiClient from '../../../api/apiClient';
 
+// Several tests here exercise real (unmocked) timers — waitForProductJob's
+// actual 1000ms poll interval, plus userEvent.type()'s real per-keystroke
+// delays across a multi-field form fill — rather than fake ones, since
+// what's being verified is genuine async sequencing, not just that a
+// callback eventually fires. Jest's default 5000ms per-test timeout is
+// usually enough for that on a quiet machine, but this file was observed
+// flaking (Jest's own "Exceeded timeout of 5000 ms" error, not a real
+// assertion failure) only when run as part of the full 27-suite parallel
+// run, never in isolation — CPU contention across workers, not a logic
+// bug. Raised here rather than switching to fake timers, which would risk
+// changing what these tests actually exercise.
+jest.setTimeout(15000);
+
 const validFields = {
   name: 'Heavy Duty Mud Flap',
   brand: 'Advika',

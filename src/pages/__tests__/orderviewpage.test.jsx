@@ -363,4 +363,94 @@ describe("OrderViewPage", () => {
     await screen.findByText("jane@example.com");
     expect(screen.getByText("Out For Delivery")).toBeInTheDocument();
   });
+
+  it("offers Refund for a paid, not-yet-shipped order", async () => {
+    apiClient.get.mockResolvedValue(
+      okResponse(buildOrder({ status: "confirmed", paymentStatus: "paid" }))
+    );
+
+    renderPage();
+
+    expect(await screen.findByRole("button", { name: /^refund$/i })).toBeInTheDocument();
+  });
+
+  it("does not offer Refund for an order that isn't fully paid", async () => {
+    apiClient.get.mockResolvedValue(
+      okResponse(buildOrder({ status: "confirmed", paymentStatus: "cod_pending" }))
+    );
+
+    renderPage();
+
+    await screen.findByText("jane@example.com");
+    expect(screen.queryByRole("button", { name: /^refund$/i })).not.toBeInTheDocument();
+  });
+
+  it("does not offer Refund once an order has already shipped", async () => {
+    apiClient.get.mockResolvedValue(
+      okResponse(
+        buildOrder({
+          status: "shipped",
+          paymentStatus: "paid",
+          shipment: { status: "IN_TRANSIT", courierPartner: "Delhivery", paymentMode: "PREPAID" },
+        })
+      )
+    );
+
+    renderPage();
+
+    await screen.findByText("jane@example.com");
+    expect(screen.queryByRole("button", { name: /^refund$/i })).not.toBeInTheDocument();
+  });
+
+  it("refunds via the real endpoint after confirmation, and refetches the order", async () => {
+    apiClient.get
+      .mockResolvedValueOnce(okResponse(buildOrder({ status: "confirmed", paymentStatus: "paid" })))
+      .mockResolvedValueOnce(
+        okResponse(buildOrder({ status: "confirmed", paymentStatus: "refund_pending" }))
+      );
+    apiClient.post.mockResolvedValue({ data: { data: {} } });
+
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /^refund$/i }));
+
+    const dialog = await screen.findByRole("alertdialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: /^refund$/i }));
+
+    await waitFor(() =>
+      expect(apiClient.post).toHaveBeenCalledWith(
+        `/api/orders/${ORDER_ID}/refund`,
+        expect.objectContaining({})
+      )
+    );
+    // Shown on both the Order Summary and Payment panels' badges — assert
+    // at least one shows up rather than requiring a single unique match.
+    await waitFor(() => expect(screen.getAllByText("Refund Pending").length).toBeGreaterThan(0));
+  });
+
+  it("shows a clear error inside the refund dialog when it fails, and does not close the dialog or change payment status", async () => {
+    apiClient.get.mockResolvedValue(
+      okResponse(buildOrder({ status: "confirmed", paymentStatus: "paid" }))
+    );
+    apiClient.post.mockRejectedValue({
+      response: {
+        status: 400,
+        data: { message: "This order has no recorded payment to refund." },
+      },
+    });
+
+    renderPage();
+
+    await userEvent.click(await screen.findByRole("button", { name: /^refund$/i }));
+    const dialog = await screen.findByRole("alertdialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: /^refund$/i }));
+
+    expect(
+      await within(dialog).findByText(/no recorded payment to refund/i)
+    ).toBeInTheDocument();
+    // A failed refund must never be treated as success — no silent refetch
+    // into a fabricated 'refund_pending' state.
+    expect(apiClient.get).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+  });
 });

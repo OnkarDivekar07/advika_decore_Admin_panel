@@ -9,8 +9,8 @@
 // says, rendered as-is (see Badge's statusTone, which colors a status
 // string without ever guessing at one).
 //
-// The only admin actions on this page are the three that have a real
-// backend operation behind them (backend/src/modules/shipping):
+// The admin actions on this page are the four that have a real backend
+// operation behind them:
 //   - POST /api/shipping/:orderId/create  (only offered when the order is
 //     actually eligible — status 'confirmed' and no shipment yet; the
 //     backend enforces this too, this just avoids offering a button that
@@ -20,6 +20,15 @@
 //     on load, only on explicit request, to keep a routine page view cheap
 //     and side-effect-free)
 //   - POST /api/shipping/:orderId/cancel
+//   - POST /api/orders/:orderId/refund    (backend/src/modules/payment/
+//     payment.service.js's refundOrderPayment — only offered for a fully
+//     paid order that hasn't shipped yet; see CANCELLABLE_ORDER_STATUSES
+//     below, mirroring the backend's own eligibility check for the same
+//     reason as canCreateShipment/canCancelShipment above). This only
+//     *initiates* a refund — paymentStatus moves to 'refund_pending', not
+//     'refunded', since Razorpay confirms a refund asynchronously; the
+//     order's own paymentStatus badge is what shows the outcome once the
+//     backend's webhook (or its reconciliation sweep) confirms it.
 // There is currently no backend endpoint to directly change an order's
 // status, so no such button exists here — see order.routes.js /
 // shipping.routes.js. Every action below re-fetches the full order from
@@ -60,6 +69,12 @@ const formatCurrency = (value) =>
 // button that would 400).
 const TERMINAL_SHIPMENT_STATUSES = new Set(["DELIVERED", "RTO_DELIVERED", "CANCELLED"]);
 
+// Mirrors order.service.js's CANCELLABLE_ORDER_STATUSES exactly — same
+// "avoid offering a button that would 400" reasoning as
+// TERMINAL_SHIPMENT_STATUSES above. The backend is the real gate either
+// way: this only controls whether the Refund button shows at all.
+const CANCELLABLE_ORDER_STATUSES = new Set(["pending", "confirmed"]);
+
 const OrderViewPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -82,6 +97,13 @@ const OrderViewPage = () => {
   const [cancelReason, setCancelReason] = useState("");
   const [cancelSubmitting, setCancelSubmitting] = useState(false);
   const [cancelError, setCancelError] = useState("");
+
+  // Refund — same confirm-dialog-with-optional-reason pattern as cancel
+  // shipment above.
+  const [refunding, setRefunding] = useState(false);
+  const [refundReason, setRefundReason] = useState("");
+  const [refundSubmitting, setRefundSubmitting] = useState(false);
+  const [refundError, setRefundError] = useState("");
 
   const fetchOrder = useCallback(
     async ({ silent } = {}) => {
@@ -134,6 +156,8 @@ const OrderViewPage = () => {
   const shipment = order?.shipment || null;
   const canCreateShipment = order?.status === "confirmed" && !shipment;
   const canCancelShipment = Boolean(shipment) && !TERMINAL_SHIPMENT_STATUSES.has(shipment?.status);
+  const canRefund =
+    order?.paymentStatus === "paid" && CANCELLABLE_ORDER_STATUSES.has(order?.status);
 
   const handleCreateShipment = async () => {
     setShipmentActionLoading("create");
@@ -183,6 +207,35 @@ const OrderViewPage = () => {
       setCancelError(err.response?.data?.message || "Could not cancel shipment.");
     } finally {
       setCancelSubmitting(false);
+    }
+  };
+
+  const openRefundDialog = () => {
+    setRefundReason("");
+    setRefundError("");
+    setRefunding(true);
+  };
+
+  const handleRefund = async () => {
+    setRefundSubmitting(true);
+    setRefundError("");
+    try {
+      // Only *initiates* the refund — see refundOrderPayment's own doc
+      // comment (payment.service.js): paymentStatus moves to
+      // 'refund_pending' here, not 'refunded'. Re-fetching the order below
+      // is what shows that transition; there's nothing further for this
+      // page to poll for, since only the webhook/reconciliation sweep ever
+      // confirms completion.
+      await apiClient.post(`/api/orders/${id}/refund`, {
+        reason: refundReason.trim() || undefined,
+      });
+      await fetchOrder({ silent: true });
+      setRefunding(false);
+    } catch (err) {
+      console.error("Error refunding order:", err);
+      setRefundError(err.response?.data?.message || "Could not refund this order.");
+    } finally {
+      setRefundSubmitting(false);
     }
   };
 
@@ -438,7 +491,20 @@ const OrderViewPage = () => {
           )}
 
           <Panel>
-            <h2 className="mb-3 text-lg font-semibold text-gray-800">Payment</h2>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-lg font-semibold text-gray-800">Payment</h2>
+              {canRefund && (
+                <Button
+                  variant="dangerOutline"
+                  onClick={openRefundDialog}
+                  disabled={refundSubmitting}
+                  data-testid="order-refund-btn"
+                >
+                  Refund
+                </Button>
+              )}
+            </div>
+
             <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
               <div>
                 <dt className="text-gray-500">Payment Status</dt>
@@ -606,6 +672,36 @@ const OrderViewPage = () => {
           rows={2}
           className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           data-testid="order-cancel-reason-input"
+        />
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={refunding}
+        title="Refund this order?"
+        message="This initiates a full refund via Razorpay for the amount this order was paid. Razorpay confirms the refund asynchronously — the payment status will show 'Refund Pending' until that's confirmed. This can't be undone from here."
+        error={refundError}
+        confirmLabel="Refund"
+        confirmVariant="danger"
+        isConfirming={refundSubmitting}
+        onConfirm={handleRefund}
+        onCancel={() => {
+          if (!refundSubmitting) {
+            setRefunding(false);
+            setRefundError("");
+          }
+        }}
+      >
+        <label htmlFor="refund-reason" className="block text-sm font-medium text-gray-700">
+          Reason (optional)
+        </label>
+        <textarea
+          id="refund-reason"
+          value={refundReason}
+          onChange={(e) => setRefundReason(e.target.value)}
+          disabled={refundSubmitting}
+          rows={2}
+          className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          data-testid="order-refund-reason-input"
         />
       </ConfirmDialog>
     </>
