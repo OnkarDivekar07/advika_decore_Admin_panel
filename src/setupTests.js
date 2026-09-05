@@ -25,3 +25,25 @@ if (typeof global.URL.createObjectURL === 'undefined') {
 if (typeof global.URL.revokeObjectURL === 'undefined') {
   global.URL.revokeObjectURL = () => {};
 }
+
+// jsdom never computes real layout, so `offsetParent` — the standard way
+// to check "is this element actually visible/rendered" — always reads
+// null for every element (see https://github.com/jsdom/jsdom/issues/1590,
+// closed as "won't implement"), regardless of any inline/CSS display
+// value. useFocusTrap's own candidate-element filter (ConfirmDialog,
+// StockAdjustModal) checks exactly `el.offsetParent !== null`, so without
+// this stub every focusable element in a test looks invisible and the
+// trap's candidate list is always empty — not a real bug, a jsdom gap in
+// the test environment itself (confirmed live against a real Chromium
+// browser via Pattern 21's axe-core scan, which found no such issue).
+// Falling back to parentNode is good enough for tests: never null while
+// actually attached to the test's rendered tree, which is the only case
+// that matters here. Unconditional (not "define only if missing") because
+// jsdom already defines its own getter — one that always returns null —
+// so a missing-check would never actually replace it.
+Object.defineProperty(global.HTMLElement.prototype, 'offsetParent', {
+  get() {
+    return this.parentNode;
+  },
+  configurable: true,
+});

@@ -29,7 +29,11 @@ const { test, expect } = require('@playwright/test');
 const fs = require('fs');
 const path = require('path');
 const realApi = require('./support/realApi');
-const { recordUploadedImageUrls, cleanupRecordedUploads } = require('./support/s3Cleanup');
+const {
+  recordUploadedImageUrls,
+  cleanupRecordedUploads,
+  imageExistsInR2,
+} = require('./support/s3Cleanup');
 const {
   E2E_ADMIN_EMAIL,
   E2E_ADMIN_PASSWORD,
@@ -54,6 +58,7 @@ test.describe.serial('Real admin journey (real backend + real DB + real S3)', ()
   let productId;
   let productName;
   let orderId;
+  let firstUploadedImageUrl;
 
   test.beforeAll(async ({ browser }) => {
     const context = await browser.newContext();
@@ -226,6 +231,7 @@ test.describe.serial('Real admin journey (real backend + real DB + real S3)', ()
     const uploadedImageUrls = jobStatus.result.images;
     expect(uploadedImageUrls.length).toBeGreaterThan(0);
     expect(uploadedImageUrls[0]).toContain('e2e-fixture-');
+    firstUploadedImageUrl = uploadedImageUrls[0];
     recordUploadedImageUrls(uploadedImageUrls);
 
     await expect(page.getByTestId('product-form')).not.toBeVisible({ timeout: 15000 });
@@ -243,5 +249,64 @@ test.describe.serial('Real admin journey (real backend + real DB + real S3)', ()
     // in this process's env; see s3Cleanup.js's own note on that).
     expect(productCheck.body.data.images[0]).toContain('/product-images/');
     expect(productCheck.body.data.images[0]).not.toContain('amazonaws.com');
+
+    // Pattern 15 (R2/S3 migration audit): "returned public URL is
+    // correct" / "image can be fetched" — a genuine HTTP GET against the
+    // real R2 public URL, not just an assertion on its shape. Proves the
+    // bucket's custom domain actually serves the object R2 says it holds.
+    const imageFetch = await fetch(firstUploadedImageUrl);
+    expect(imageFetch.status).toBe(200);
+    expect(imageFetch.headers.get('content-type')).toMatch(/^image\//);
+    const imageBytes = await imageFetch.arrayBuffer();
+    expect(imageBytes.byteLength).toBeGreaterThan(0);
+  });
+
+  // Pattern 14 (product CRUD/media audit): proves imageWorker.js's
+  // deleteSupersededImages fix against the REAL R2 bucket — not a mock.
+  // Depends on the product created by the test above (real productId +
+  // real first-uploaded image URL still live in R2 at this point).
+  test('replacing a product image via a real update deletes the superseded image from the real R2 bucket', async () => {
+    expect(productId).toBeTruthy();
+    expect(firstUploadedImageUrl).toBeTruthy();
+
+    // Sanity check: the old image genuinely exists in R2 before the update
+    // — otherwise a "deleted" assertion afterward would be meaningless.
+    await expect(imageExistsInR2(firstUploadedImageUrl)).resolves.toBe(true);
+
+    const newImageName = e2eFixtureImageName();
+    const updateRes = await realApi.updateProductWithImage(
+      productId,
+      { name: productName },
+      LOGO_BYTES,
+      newImageName,
+      adminToken
+    );
+    expect(updateRes.status).toBe(200);
+    const jobId = updateRes.body.data.jobId;
+    expect(jobId).toBeTruthy();
+
+    let jobStatus;
+    for (let attempt = 0; attempt < 30; attempt += 1) {
+      const res = await realApi.getProductJobStatus(jobId, adminToken);
+      jobStatus = res.body.data;
+      if (jobStatus.state === 'completed' || jobStatus.state === 'failed') break;
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+    expect(jobStatus.state).toBe('completed');
+    const newImageUrls = jobStatus.result.images;
+    expect(newImageUrls.length).toBeGreaterThan(0);
+    expect(newImageUrls[0]).toContain('e2e-fixture-');
+    expect(newImageUrls[0]).not.toBe(firstUploadedImageUrl);
+    recordUploadedImageUrls(newImageUrls);
+
+    // Real DB truth: the product now points at the new image.
+    const productCheck = await realApi.getProduct(productId);
+    expect(productCheck.body.data.images).toEqual(newImageUrls);
+
+    // Real R2 truth: the OLD image is genuinely gone, and the new one is
+    // genuinely there — this is the actual defect Pattern 14 found and
+    // imageWorker.js's deleteSupersededImages now fixes.
+    await expect(imageExistsInR2(firstUploadedImageUrl)).resolves.toBe(false);
+    await expect(imageExistsInR2(newImageUrls[0])).resolves.toBe(true);
   });
 });

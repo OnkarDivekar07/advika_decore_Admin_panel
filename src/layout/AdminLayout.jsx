@@ -57,7 +57,33 @@ const AdminLayout = ({ children }) => {
   }, [sidebarOpen]);
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-100">
+    <div className="flex min-h-screen flex-col bg-gray-100" style={{ overflowX: 'hidden' }}>
+      {/* Pattern 21 (mobile/responsive/accessibility smoke): confirmed
+          live — a wide DataTable (Products, more columns than a mobile/
+          narrow desktop viewport can fit) already renders inside its own
+          overflow-x-auto wrapper (DataTable.jsx) and Panel's own min-w-0
+          (see Panel.jsx's comment on exactly this class of bug), yet the
+          page itself still gained a horizontal scrollbar — 230px on a
+          1280px desktop viewport. This is a defensive backstop, not a fix
+          for a located gap in that chain: no single missing min-w-0 was
+          found despite checking every ancestor, and this guarantees the
+          *page* can never scroll horizontally regardless of what a future
+          wide descendant does, forcing any such content back into its own
+          intended overflow-x-auto container instead of leaking out.
+          Inline style, not a Tailwind class: confirmed live (fresh dev
+          server, ruling out a stale-cache explanation) that the
+          `overflow-x-hidden` utility class specifically was never actually
+          reaching this element's computed style even though the visually
+          identical `overflow-x-auto` class already used elsewhere in this
+          app (DataTable.jsx) works correctly. This measurably helped
+          (230px of page-level overflow on Products/desktop dropped to
+          ~200px) but did NOT fully eliminate it — a raw CSS rule on
+          html/body was also tried and had no additional effect, and
+          further investigation (see Pattern 21's final report) didn't
+          converge on the remaining source in the time budget available.
+          Left in place as a genuine partial improvement and documented as
+          an open finding rather than force a fix for a cause that isn't
+          understood yet. */}
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-blue-600 focus:px-4 focus:py-2 focus:text-white"

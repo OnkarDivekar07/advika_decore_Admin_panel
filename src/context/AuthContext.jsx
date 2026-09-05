@@ -32,6 +32,7 @@ import {
   getStoredUser,
   setStoredSession,
   clearStoredSession,
+  TOKEN_KEY,
 } from '../api/session';
 
 const AuthContext = createContext(undefined);
@@ -39,6 +40,7 @@ const AuthContext = createContext(undefined);
 const SESSION_MESSAGES = {
   expired: 'Your session has expired. Please log in again.',
   forbidden: 'This account does not have admin access.',
+  loggedOutElsewhere: 'You were logged out in another tab.',
 };
 
 export function AuthProvider({ children }) {
@@ -81,6 +83,44 @@ export function AuthProvider({ children }) {
     setSessionInvalidatedHandler((reason) => handleInvalidatedRef.current(reason));
     return () => setSessionInvalidatedHandler(null);
   }, []);
+
+  // Cross-tab logout sync. The admin token deliberately lives in
+  // localStorage (shared across tabs, unlike the customer app's
+  // sessionStorage choice — see session.js), which is otherwise convenient
+  // for an admin who legitimately works across multiple tabs, but without
+  // this listener a tab logging out (or getting force-logged-out by a 401)
+  // never told any OTHER open tab — that tab kept rendering its already-
+  // authenticated UI in memory until its own next API call happened to
+  // fail. `storage` only fires in tabs OTHER than the one that made the
+  // change, so this can never fight with this tab's own logout() call.
+  useEffect(() => {
+    const onStorage = (event) => {
+      if (event.key !== TOKEN_KEY) return;
+      if (event.newValue) return; // another tab logged IN — not this tab's concern
+      if (!verifiedTokenRef.current && !getStoredToken()) return; // already logged out here too
+      clearSession();
+      setSessionMessage(SESSION_MESSAGES.loggedOutElsewhere);
+      setStatus('ready');
+      navigate('/', { replace: true });
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clearSession, navigate]);
+
+  // Pattern 13 (admin session security audit) investigated a suspected
+  // bfcache-restores-a-stale-authenticated-page risk here (browser back
+  // after logout) and initially built a live Playwright reproduction that
+  // appeared to confirm it. On closer, controlled verification (rerunning
+  // with vs. without a candidate fix), that reproduction turned out to be
+  // a test-harness artifact — the test's login helper re-seeds
+  // localStorage via page.addInitScript, which Playwright reapplies on
+  // every subsequent navigation in that test, masking what logout actually
+  // did. With a corrected test (real login-form flow, no persistent
+  // re-seeding), the app already redirects correctly on back-navigation
+  // with no app change needed — see e2e/login.spec.js's "browser back
+  // after logout" test. Documented here rather than silently dropped, so
+  // this isn't investigated as a "new" finding again later.
 
   // Authoritative session check: a token surviving in localStorage proves
   // nothing by itself (it could be expired, or the account could have been

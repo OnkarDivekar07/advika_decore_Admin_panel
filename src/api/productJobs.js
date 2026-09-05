@@ -10,7 +10,19 @@
 import apiClient from './apiClient';
 
 const POLL_INTERVAL_MS = 1000;
-const MAX_POLLS = 25; // ~25s ceiling before we stop waiting and say so
+// ~45s ceiling before we stop waiting and say so. Must comfortably exceed
+// the backend's own worst-case time-to-'failed' (backend 2.0's
+// jobs/queues/imageQueue.js: attempts: 3 with exponential backoff,
+// delay: 10000 — a job that keeps failing waits 10s then 20s between
+// retries, 30s of backoff alone before the 3rd/final attempt even runs,
+// on top of each attempt's own execution time). This used to be 25,
+// which is provably shorter than that 30s floor — every sustained
+// image-processing failure (e.g. a real R2 outage) was guaranteed to hit
+// this ceiling and report the ambiguous "still processing" message
+// instead of the real failure, well before the backend ever reached
+// 'failed'. If that backend retry policy changes, this needs to move
+// with it.
+const MAX_POLLS = 45;
 
 /**
  * @param {string} jobId

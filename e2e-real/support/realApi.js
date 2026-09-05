@@ -70,6 +70,23 @@ const realApi = {
     const body = await res.json().catch(() => ({}));
     return { status: res.status, ok: res.ok, body };
   },
+  // Real multipart PATCH /api/products/:id with a replacement image — used
+  // by Pattern 14's R2-cleanup-on-update verification (a genuinely new
+  // image replacing an existing one, against the real upload pipeline).
+  async updateProductWithImage(productId, fields, imageBuffer, imageName, token) {
+    const form = new FormData();
+    for (const [key, value] of Object.entries(fields)) {
+      form.append(key, String(value));
+    }
+    form.append('images', new Blob([imageBuffer], { type: 'image/png' }), imageName);
+    const res = await fetch(`${API_BASE}/api/products/${productId}`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    });
+    const body = await res.json().catch(() => ({}));
+    return { status: res.status, ok: res.ok, body };
+  },
   // See frontend-improved/e2e-real/support/realApi.js's identical helper —
   // the real address validator requires E.164 phone format
   // (+91[6-9]\d{9}); the real UI formats this itself, this direct-API

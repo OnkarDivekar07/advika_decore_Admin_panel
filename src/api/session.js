@@ -13,7 +13,10 @@
 // invents authorization state — the backend remains authoritative, and
 // AuthContext re-confirms that via GET /api/admin/me on load.
 
-const TOKEN_KEY = 'token';
+// Exported so AuthContext's cross-tab logout listener can filter on the
+// exact same key this module writes, rather than a second hardcoded copy
+// of the string that could silently drift out of sync with this one.
+export const TOKEN_KEY = 'token';
 const USER_KEY = 'user';
 
 export function getStoredToken() {

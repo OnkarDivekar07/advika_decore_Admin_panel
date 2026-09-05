@@ -115,6 +115,7 @@ const Alerts = () => {
   const pendingOrders = alerts?.pendingOrders;
   const paymentExceptions = alerts?.paymentExceptions;
   const shipmentExceptions = alerts?.shipmentExceptions;
+  const fulfillmentExceptions = alerts?.fulfillmentExceptions;
 
   return (
     <>
@@ -327,6 +328,66 @@ const Alerts = () => {
                           </td>
                           <td className="px-4 py-3 text-right text-sm">
                             <Link to={`/orders/${shipment.orderId}`} className="font-medium text-blue-600 hover:underline" aria-label={`View order #${shipment.orderId.slice(-8)}`}>
+                              View
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </AlertSection>
+
+            {/* --- Fulfillment exceptions ------------------------------------ */}
+            {/* Pattern 16 (Redis/BullMQ/background-job resilience audit): a
+                paid order whose post-confirmation fulfillment (stock decrement,
+                cart clear, confirmation notification) failed — most often
+                "paid but oversold" — and either is still within
+                reconcileFailedFulfillments' automatic retry sweep or has
+                exhausted it. Previously invisible anywhere in this admin
+                panel; see backend/src/modules/admin/admin.service.js's
+                getOperationalAlerts. */}
+            <AlertSection
+              title="Fulfillment exceptions"
+              description="Paid orders where stock sync, cart clearing, or the confirmation SMS failed after payment."
+              icon="triangle-exclamation"
+              count={fulfillmentExceptions.count}
+              loading={loading}
+            >
+              {fulfillmentExceptions.items.length === 0 ? (
+                <EmptyState icon="check-circle" title="No fulfillment exceptions" />
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Order</th>
+                        <th scope="col" className="hidden px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase sm:table-cell">Customer</th>
+                        <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+                        <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Reason</th>
+                        <th scope="col" className="hidden px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase sm:table-cell">Attempts</th>
+                        <th scope="col" className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200 bg-white">
+                      {fulfillmentExceptions.items.map((order) => (
+                        <tr key={order.id}>
+                          <td className="px-4 py-3 text-sm font-mono text-gray-700">#{order.id.slice(-8)}</td>
+                          <td className="hidden px-4 py-3 text-sm text-gray-500 sm:table-cell">
+                            {order.user?.name || 'N/A'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(order.total)}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700">
+                            {order.oversold ? (
+                              <Badge tone="red">Oversold</Badge>
+                            ) : (
+                              <span className="text-gray-500">{order.fulfillmentError || '—'}</span>
+                            )}
+                          </td>
+                          <td className="hidden px-4 py-3 text-sm text-gray-500 sm:table-cell">{order.fulfillmentAttempts}</td>
+                          <td className="px-4 py-3 text-right text-sm">
+                            <Link to={`/orders/${order.id}`} className="font-medium text-blue-600 hover:underline" aria-label={`View order #${order.id.slice(-8)}`}>
                               View
                             </Link>
                           </td>

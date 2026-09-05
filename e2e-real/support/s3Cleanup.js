@@ -6,7 +6,10 @@
 // rationale (real bucket, isolated by the uploaded file's own distinctive
 // "e2e-fixture-" basename, no application code changed).
 const path = require('path');
-const { deleteE2EUploads } = require('../../../backend 2.0/tests/e2e-helpers/cleanupE2EUploads');
+const {
+  deleteE2EUploads,
+  objectExistsInR2,
+} = require('../../../backend 2.0/tests/e2e-helpers/cleanupE2EUploads');
 
 const recordedUrls = [];
 
@@ -28,16 +31,33 @@ function keyFromUploadUrl(url) {
   return idx === -1 ? null : url.slice(idx + s3Marker.length);
 }
 
-async function cleanupRecordedUploads() {
-  if (recordedUrls.length === 0) return;
-
-  // Loads the same credentials the real E2E backend process itself used
-  // (backend 2.0/.env.e2e) — this cleanup script isn't spawned as part of
-  // that process, so it needs its own env load. Done before parsing keys
-  // since key parsing now depends on R2_PUBLIC_URL being loaded.
+// Loads the same credentials the real E2E backend process itself used
+// (backend 2.0/.env.e2e) — these support scripts aren't spawned as part of
+// that process, so they need their own env load. dotenv.config() doesn't
+// overwrite already-set vars, so calling this more than once is harmless.
+function loadE2EEnv() {
   require('dotenv').config({
     path: path.join(__dirname, '..', '..', '..', 'backend 2.0', '.env.e2e'),
   });
+}
+
+// Pattern 14: direct, real-bucket proof that a superseded product image was
+// actually deleted from R2 (not an inference from the app's own response) —
+// resolves the public URL to its object key the same way cleanup does, then
+// asks R2 itself whether the object is still there.
+async function imageExistsInR2(url) {
+  loadE2EEnv();
+  const key = keyFromUploadUrl(url);
+  if (!key) throw new Error(`Could not derive an R2 key from URL: ${url}`);
+  return objectExistsInR2(process.env.R2_BUCKET_NAME, key);
+}
+
+async function cleanupRecordedUploads() {
+  if (recordedUrls.length === 0) return;
+
+  // Done before parsing keys since key parsing depends on R2_PUBLIC_URL
+  // being loaded.
+  loadE2EEnv();
 
   const keys = recordedUrls.map(keyFromUploadUrl).filter(Boolean);
   if (keys.length === 0) return;
@@ -48,4 +68,4 @@ async function cleanupRecordedUploads() {
   );
 }
 
-module.exports = { recordUploadedImageUrls, cleanupRecordedUploads };
+module.exports = { recordUploadedImageUrls, cleanupRecordedUploads, imageExistsInR2 };

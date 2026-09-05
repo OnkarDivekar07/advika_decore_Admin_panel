@@ -70,6 +70,8 @@ function Header({ onMenuClick = () => {}, sidebarOpen = false }) {
           <img
             src="/admin-logo.png"
             alt="E-commerce Admin Panel logo"
+            width="36"
+            height="36"
             className="h-9 w-9 shrink-0 rounded sm:h-10 sm:w-10"
           />
           <h1 className="min-w-0 truncate text-lg font-semibold text-gray-800 sm:text-2xl">

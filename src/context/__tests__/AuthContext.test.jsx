@@ -158,4 +158,82 @@ describe('AuthContext', () => {
       'Your session has expired. Please log in again.'
     );
   });
+
+  // Pattern 13 (admin session security audit): the admin token deliberately
+  // lives in localStorage (shared across tabs) — logging out in one tab
+  // must invalidate any OTHER open tab too, not leave it rendering stale
+  // authenticated UI until its next API call happens to fail. A real
+  // logout in another tab surfaces here as a native `storage` event (fired
+  // only in tabs that DIDN'T make the change) with the token key's
+  // newValue cleared.
+  it('logs this tab out too when the token is cleared by another tab (cross-tab logout sync)', async () => {
+    apiClient.post.mockResolvedValue({
+      data: {
+        data: {
+          token: 'jwt-token',
+          user: { id: '1', name: 'Admin', email: 'a@b.com', role: 'admin' },
+        },
+      },
+    });
+    renderWithProvider();
+    await userEvent.click(screen.getByText('login'));
+    await waitFor(() =>
+      expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('true')
+    );
+
+    // Simulate the OTHER tab's logout: it already cleared localStorage
+    // itself, then this tab receives the storage event.
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent('storage', { key: 'token', newValue: null, oldValue: 'jwt-token' })
+      );
+    });
+
+    expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('false');
+    expect(screen.getByTestId('sessionMessage')).toHaveTextContent(
+      'You were logged out in another tab.'
+    );
+  });
+
+  it('ignores an unrelated storage key changing (not a cross-tab logout)', async () => {
+    apiClient.post.mockResolvedValue({
+      data: {
+        data: {
+          token: 'jwt-token',
+          user: { id: '1', name: 'Admin', email: 'a@b.com', role: 'admin' },
+        },
+      },
+    });
+    renderWithProvider();
+    await userEvent.click(screen.getByText('login'));
+    await waitFor(() =>
+      expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('true')
+    );
+
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent('storage', { key: 'someOtherKey', newValue: 'x', oldValue: null })
+      );
+    });
+
+    expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('true');
+  });
+
+  it('does not react to another tab logging IN (token set, not cleared)', async () => {
+    renderWithProvider();
+    expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('false');
+
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent('storage', { key: 'token', newValue: 'someone-elses-new-token', oldValue: null })
+      );
+    });
+
+    // Still logged out here — a fresh login elsewhere doesn't silently
+    // authenticate this tab without going through its own /me check.
+    expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('false');
+    expect(screen.getByTestId('sessionMessage')).toHaveTextContent('');
+  });
 });

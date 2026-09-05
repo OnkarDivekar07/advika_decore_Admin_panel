@@ -17,6 +17,7 @@ const buildAlerts = (overrides = {}) => ({
   pendingOrders: { count: 0, items: [] },
   paymentExceptions: { count: 0, items: [] },
   shipmentExceptions: { count: 0, items: [] },
+  fulfillmentExceptions: { count: 0, items: [] },
   generatedAt: '2026-08-19T00:00:00.000Z',
   ...overrides,
 });
@@ -162,6 +163,45 @@ describe('Alerts page', () => {
     expect(screen.getByText(/Delhivery · TRK123/)).toBeInTheDocument();
   });
 
+  it('renders real fulfillment exceptions, badging an oversold order and showing the raw reason otherwise', async () => {
+    apiClient.get.mockResolvedValue(
+      mockResponse(
+        buildAlerts({
+          fulfillmentExceptions: {
+            count: 2,
+            items: [
+              {
+                id: '507f1f77bcf86cd799439102',
+                total: 650,
+                fulfillmentError: 'Paid but oversold — insufficient stock for one or more items in this order.',
+                fulfillmentAttempts: 5,
+                oversold: true,
+                updatedAt: '2026-08-01T00:00:00.000Z',
+                user: { name: 'Ravi Kumar', email: 'ravi@x.com' },
+              },
+              {
+                id: '507f1f77bcf86cd799439103',
+                total: 300,
+                fulfillmentError: 'Redis unavailable',
+                fulfillmentAttempts: 1,
+                oversold: false,
+                updatedAt: '2026-08-01T00:00:00.000Z',
+                user: { name: 'Neha Patil', email: 'neha@x.com' },
+              },
+            ],
+          },
+        })
+      )
+    );
+
+    renderAlerts();
+
+    expect(await screen.findByText('Ravi Kumar')).toBeInTheDocument();
+    expect(screen.getByText('Oversold')).toBeInTheDocument();
+    expect(screen.getByText('Neha Patil')).toBeInTheDocument();
+    expect(screen.getByText('Redis unavailable')).toBeInTheDocument();
+  });
+
   it('shows an empty state for a section with no items, instead of fake rows', async () => {
     apiClient.get.mockResolvedValue(mockResponse(buildAlerts()));
 
@@ -171,6 +211,7 @@ describe('Alerts page', () => {
     expect(screen.getByText('No orders awaiting confirmation')).toBeInTheDocument();
     expect(screen.getByText('No payment exceptions')).toBeInTheDocument();
     expect(screen.getByText('No shipment exceptions')).toBeInTheDocument();
+    expect(screen.getByText('No fulfillment exceptions')).toBeInTheDocument();
   });
 
   it('shows an error state with a working retry', async () => {
