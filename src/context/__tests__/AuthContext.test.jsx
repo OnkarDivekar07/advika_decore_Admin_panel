@@ -57,6 +57,7 @@ const renderWithProvider = () =>
 describe('AuthContext', () => {
   beforeEach(() => {
     localStorage.clear();
+    sessionStorage.clear();
     apiClient.get.mockReset();
     apiClient.post.mockReset();
     setSessionInvalidatedHandler.mockClear();
@@ -92,7 +93,7 @@ describe('AuthContext', () => {
 
   it('re-verifies a stored token against GET /api/admin/me on mount', async () => {
     localStorage.setItem('token', 'stored-token');
-    localStorage.setItem(
+    sessionStorage.setItem(
       'user',
       JSON.stringify({ id: '1', name: 'Old Name', email: 'a@b.com', role: 'admin' })
     );
@@ -130,12 +131,12 @@ describe('AuthContext', () => {
 
     expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('false');
     expect(localStorage.getItem('token')).toBeNull();
-    expect(localStorage.getItem('user')).toBeNull();
+    expect(sessionStorage.getItem('user')).toBeNull();
   });
 
   it('registers a session-invalidated handler that clears state on a 401/403 elsewhere in the app', async () => {
     localStorage.setItem('token', 'stored-token');
-    localStorage.setItem('user', JSON.stringify({ id: '1', email: 'a@b.com', role: 'admin' }));
+    sessionStorage.setItem('user', JSON.stringify({ id: '1', email: 'a@b.com', role: 'admin' }));
     apiClient.get.mockResolvedValue({
       data: { data: { id: '1', email: 'a@b.com', role: 'admin' } },
     });
@@ -181,10 +182,12 @@ describe('AuthContext', () => {
       expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('true')
     );
 
-    // Simulate the OTHER tab's logout: it already cleared localStorage
-    // itself, then this tab receives the storage event.
+    // Simulate the OTHER tab's logout: it already cleared its own storage
+    // (token from localStorage, user from sessionStorage — see
+    // session.js's clearStoredSession), then this tab receives the
+    // storage event that only a localStorage change fires.
     localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    sessionStorage.removeItem('user');
     act(() => {
       window.dispatchEvent(
         new StorageEvent('storage', { key: 'token', newValue: null, oldValue: 'jwt-token' })
